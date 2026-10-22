@@ -13,6 +13,17 @@ uv run serve.py    # open http://localhost:8001 and play
 
 `serve.py` trains a model automatically if `models/model.npz` doesn't exist. Delete that file to retrain from scratch.
 
+## Stopping and resuming
+
+Progress is saved after every generation in `models/checkpoint/` (every accepted net plus the history). Stop with Ctrl+C any time and run `uv run train.py` again to carry on from the last finished generation. Each run does 5 more generations by default.
+
+```
+uv run train.py --generations 20   # run 20 more generations
+uv run train.py --fresh            # throw away saved progress and start over
+```
+
+The training data isn't saved. On resume it is rebuilt from a few fresh self-play games by the best net, which takes about a minute.
+
 ## Training dashboard
 
 `uv run train.py` also starts a live dashboard at http://localhost:8002 with a progress bar, a win-rate chart per generation, and a table of the numbers. It stays up after training finishes so you can look at the results; press Ctrl+C to quit. Use `uv run train.py --no-dashboard` to skip it.

@@ -5,7 +5,8 @@ import numpy as np
 
 from .network import Net
 
-MODEL_PATH = Path(__file__).resolve().parent.parent / "models" / "model.npz"
+MODELS_DIR = Path(__file__).resolve().parent.parent / "models"
+MODEL_PATH = MODELS_DIR / "model.npz"      # the best net so far, used by the game server
 
 
 def save_net(net, path=MODEL_PATH):

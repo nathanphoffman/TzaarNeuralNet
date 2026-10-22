@@ -8,14 +8,14 @@ class Progress:
         self._lock = threading.Lock()
         self.start(0, 0, 0)
 
-    def start(self, total_generations, total_steps, match_games):
+    def start(self, total_generations, total_steps, match_games, rows=()):
         with self._lock:
             self.total_generations = total_generations
             self.total_steps = total_steps
             self.match_games = match_games
             self.steps_started = 0
             self.status = "Starting..."
-            self.generations = []            # one row per generation, generation 0 first
+            self.generations = list(rows)    # one row per generation, generation 0 first
             self.summary = None
             self.running = True
             self.started_at = time.time()
@@ -27,10 +27,9 @@ class Progress:
             self.steps_started += 1
             self.status = status
 
-    def add_generation(self, generation, rating, vs_random, vs_best=None, accepted=True):
+    def add_generation(self, row):
         with self._lock:
-            self.generations.append({"generation": generation, "rating": rating,
-                                     "vs_random": vs_random, "vs_best": vs_best, "accepted": accepted})
+            self.generations.append(row)
 
     def finish(self, summary):
         with self._lock:
