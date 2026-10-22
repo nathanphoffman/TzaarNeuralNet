@@ -4,9 +4,6 @@ __pycache__/
 .venv/
 *.egg-info/
 
-# Trained models
-*.npz
-
 # Editors / OS
 .idea/
 .vscode/

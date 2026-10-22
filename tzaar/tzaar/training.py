@@ -3,6 +3,8 @@
 Training can be stopped and resumed: after every generation the accepted nets and the
 history are saved (see checkpoint.py), and the next run carries on from there.
 """
+import itertools
+
 import numpy as np
 
 from .checkpoint import clear_checkpoint, load_checkpoint, save_checkpoint
@@ -12,7 +14,8 @@ from .players import make_net_player, random_player
 from .progress import progress
 from .rating import elo_gap, rate_net
 
-NUM_GENERATIONS = 5           # how many generations to run each time training is started
+NUM_GENERATIONS = 5           # used when a fixed number is wanted (e.g. the game server's first-run training)
+STEPS_PER_GENERATION = 3      # self-play, training, testing
 RANDOM_GAMES = 1500
 START_GAMES = 100             # games per self-play batch and per test match in generation 0...
 GAMES_PER_GENERATION = 20     # ...growing by this many games for each generation after
@@ -85,8 +88,9 @@ def run_self_play_generations(generations, history, rated_nets, batches):
     best_generation, best, best_rating = rated_nets[-1]
     best_vs_random = next(r["vs_random"] for r in history if r["generation"] == best_generation)
     first = history[-1]["generation"] + 1
+    numbers = itertools.count(first) if generations is None else range(first, first + generations)
 
-    for generation in range(first, first + generations):
+    for generation in numbers:
         self_play_games = games_for(generation, MAX_SELF_PLAY_GAMES)
         match_games = games_for(generation, MAX_MATCH_GAMES)
 
@@ -126,21 +130,26 @@ def run_self_play_generations(generations, history, rated_nets, batches):
 
 
 def train_model(generations=NUM_GENERATIONS, fresh=False):
-    """Run `generations` more generations (continuing from a saved checkpoint if there is
-    one, unless `fresh`) and return the best net."""
+    """Run `generations` more generations, or keep going until stopped if it is None.
+    Continues from a saved checkpoint if there is one, unless `fresh`. Returns the best net."""
     if fresh:
         clear_checkpoint()
     checkpoint = load_checkpoint()
+    open_ended = generations is None
     if checkpoint is None:
-        progress.start(generations, total_steps=2 + 3 * generations, match_games=MAX_MATCH_GAMES)
+        progress.start(None if open_ended else generations,
+                       None if open_ended else 2 + STEPS_PER_GENERATION * generations,
+                       MAX_MATCH_GAMES, setup_steps=2, steps_per_generation=STEPS_PER_GENERATION)
         history, rated_nets, batches = start_new_run()
     else:
         history, rated_nets = checkpoint
         last = history[-1]["generation"]
         print(f"Resuming after generation {last}. Best net so far: generation {rated_nets[-1][0]}, "
               f"rating {rated_nets[-1][2]:.0f}")
-        progress.start(last + generations, total_steps=1 + 3 * generations,
-                       match_games=MAX_MATCH_GAMES, rows=history)
+        progress.start(None if open_ended else last + generations,
+                       None if open_ended else 1 + STEPS_PER_GENERATION * generations,
+                       MAX_MATCH_GAMES, rows=history, setup_steps=1,
+                       steps_per_generation=STEPS_PER_GENERATION)
         batches = rebuild_batches(rated_nets[-1][1], last + 1)
 
     best, rating, vs_random = run_self_play_generations(generations, history, rated_nets, batches)

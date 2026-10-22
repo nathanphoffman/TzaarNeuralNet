@@ -13,7 +13,7 @@ from .board import POINTS
 from .game import State, new_game
 from .model_store import MODEL_PATH, load_net, save_net
 from .players import make_net_player
-from .training import train_model
+from .training import NUM_GENERATIONS, train_model
 
 INDEX_HTML = Path(__file__).resolve().parent.parent / "web" / "index.html"
 PORT = 8001
@@ -24,7 +24,7 @@ def get_net():
     if MODEL_PATH.exists():
         print("Loaded", MODEL_PATH)
         return load_net()
-    net = train_model()
+    net = train_model(NUM_GENERATIONS)
     save_net(net)
     return net
 

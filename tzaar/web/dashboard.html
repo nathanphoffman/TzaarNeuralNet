@@ -240,7 +240,9 @@ function showElapsed() {
 /* ---------- page pieces ---------- */
 function render() {
   $('status').textContent = data.running ? data.status : (data.summary || 'Done');
-  $('status-line').textContent = data.running ? 'Training in progress. This page updates by itself.' : 'Training finished.';
+  $('status-line').textContent = data.running
+    ? (data.total_generations === null ? 'Running until you stop it (Ctrl+C). This page updates by itself.' : 'Training in progress. This page updates by itself.')
+    : 'Training finished.';
   const fill = $('meter-fill');
   if (!fill.dataset.drawn) { fill.style.transition = 'none'; fill.dataset.drawn = '1'; }
   else fill.style.transition = '';
@@ -268,8 +270,9 @@ function renderTiles() {
   const acceptedCount = tested.filter(r => r.accepted).length;
   $('tile-accepted').textContent = tested.length ? String(acceptedCount) : '–';
   $('tile-accepted-note').textContent = tested.length ? `of ${tested.length} tested` : 'None tested yet';
-  $('tile-tested').textContent = `${tested.length} / ${data.total_generations}`;
-  $('tile-tested-note').textContent = data.running ? 'In progress' : 'Complete';
+  const fixedTotal = data.total_generations !== null;
+  $('tile-tested').textContent = fixedTotal ? `${tested.length} / ${data.total_generations}` : String(tested.length);
+  $('tile-tested-note').textContent = !data.running ? 'Complete' : fixedTotal ? 'In progress' : 'Keeps going until stopped';
 }
 
 function renderLegend() {
@@ -319,7 +322,8 @@ function drawCharts() { CHARTS.forEach(drawChart); }
 function drawChart(cfg) {
   const wrap = $(cfg.el), tip = wrap.querySelector('.tip');
   const W = Math.max(280, wrap.clientWidth), H = Math.round(Math.max(220, Math.min(320, W * 0.45)));
-  const rows = data.generations, N = Math.max(1, data.total_generations);
+  const rows = data.generations;
+  const N = Math.max(1, data.total_generations ?? (rows.length ? rows[rows.length - 1].generation : 1));
   const {min, max, step} = cfg.domain(rows);
   const m = {l: 48, r: 16, t: 12, b: 48};
   const y = v => m.t + (1 - (v - min) / (max - min)) * (H - m.t - m.b);
@@ -368,7 +372,7 @@ function drawChart(cfg) {
     if (pts.length > 1)
       svg.append(el('path', {d: 'M' + pts.map(p => p.join(',')).join('L'), fill: 'none',
                              'stroke-linejoin': 'round', 'stroke-linecap': 'round'}, {stroke: s.color, strokeWidth: 2}));
-    for (const [px, py] of pts) {
+    for (const [px, py] of (slot < 10 ? pts.slice(-1) : pts)) {      // many generations: mark only the latest
       svg.append(el('circle', {cx: px, cy: py, r: 6.5}, {fill: 'var(--surface)'}));
       svg.append(el('circle', {cx: px, cy: py, r: 4.5}, {fill: s.color}));
     }

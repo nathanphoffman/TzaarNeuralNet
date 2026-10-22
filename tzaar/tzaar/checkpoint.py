@@ -21,7 +21,7 @@ def save_checkpoint(history, rated_nets):
     Also keeps models/model.npz up to date with the best net."""
     CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
     for generation, net, _ in rated_nets:
-        if not _net_path(generation).exists():
+        if net is rated_nets[-1][1] or not _net_path(generation).exists():
             save_net(net, _net_path(generation))
     save_net(rated_nets[-1][1])
     nets = [{"generation": generation, "rating": rating} for generation, _, rating in rated_nets]

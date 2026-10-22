@@ -8,10 +8,14 @@ class Progress:
         self._lock = threading.Lock()
         self.start(0, 0, 0)
 
-    def start(self, total_generations, total_steps, match_games, rows=()):
+    def start(self, total_generations, total_steps, match_games, rows=(), setup_steps=0, steps_per_generation=3):
+        """total_generations / total_steps are None when training runs until it is stopped; the
+        progress bar then shows how far through the current generation we are."""
         with self._lock:
             self.total_generations = total_generations
             self.total_steps = total_steps
+            self.setup_steps = setup_steps
+            self.steps_per_generation = steps_per_generation
             self.match_games = match_games
             self.steps_started = 0
             self.status = "Starting..."
@@ -41,7 +45,13 @@ class Progress:
     def snapshot(self):
         with self._lock:
             end = self.finished_at or time.time()
-            fraction = 1.0 if not self.running else max(0, self.steps_started - 1) / max(1, self.total_steps)
+            if not self.running:
+                fraction = 1.0
+            elif self.total_steps is None:
+                done_in_generation = max(0, self.steps_started - 1 - self.setup_steps) % self.steps_per_generation
+                fraction = done_in_generation / self.steps_per_generation
+            else:
+                fraction = max(0, self.steps_started - 1) / max(1, self.total_steps)
             return {"status": self.status, "running": self.running, "summary": self.summary,
                     "elapsed": end - self.started_at, "fraction": fraction,
                     "total_generations": self.total_generations, "match_games": self.match_games,
