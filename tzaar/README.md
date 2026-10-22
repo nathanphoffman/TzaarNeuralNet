@@ -13,6 +13,10 @@ uv run serve.py    # open http://localhost:8001 and play
 
 `serve.py` trains a model automatically if `models/model.npz` doesn't exist. Delete that file to retrain from scratch.
 
+## Training dashboard
+
+`uv run train.py` also starts a live dashboard at http://localhost:8002 with a progress bar, a win-rate chart per generation, and a table of the numbers. It stays up after training finishes so you can look at the results; press Ctrl+C to quit. Use `uv run train.py --no-dashboard` to skip it.
+
 ## Rules used
 
 - 60 points on a hexagonal board; the centre is a gap that nothing can land on or jump over.
@@ -27,6 +31,8 @@ uv run serve.py    # open http://localhost:8001 and play
 1. Play random-vs-random games and record each position with who won.
 2. Train generation 0 on that data.
 3. For each generation: the best net plays itself (with 20% random moves), a fresh net trains on the last 3 batches of data, and it replaces the best net only if it beats it and doesn't get worse against a random player.
+
+Every new net also gets an Elo-style rating (random player = 0, +100 is about a 64% win rate). It is worked out by playing 400 games against each of the last 3 accepted nets and against a random player, then averaging what each result implies. A rating that stops climbing means the setup has hit its ceiling.
 
 The net looks one action ahead: it tries every legal action, scores the resulting position, and plays the best. That makes it a basic player, not a strong one. Settings are at the top of `tzaar/training.py`.
 
@@ -43,7 +49,10 @@ tzaar/
   games.py             play games, make training data, run matches
   training.py          the generation loop
   model_store.py       save / load the model
-  server.py            the web server
+  progress.py          training progress, shared with the dashboard
+  dashboard.py         the training dashboard server
+  server.py            the game web server
 web/index.html         the game board page
+web/dashboard.html     the training dashboard page
 models/                saved models (git-ignored)
 ```

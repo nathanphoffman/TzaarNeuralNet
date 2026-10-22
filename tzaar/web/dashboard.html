@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tzaar Training</title>
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f9f9f7;
+    --surface: #fcfcfb;
+    --ink: #0b0b0b;
+    --ink-2: #52514e;
+    --muted: #898781;
+    --grid: #e1e0d9;
+    --axis: #c3c2b7;
+    --border: rgba(11,11,11,0.10);
+    --good: #006300;
+    --bad: #d03b3b;
+    --meter-fill: #2a78d6;
+    --meter-track: #cde2fb;
+    --series-1: #2a78d6;
+    --series-2: #eb6834;
+    --series-3: #1baf7a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --page: #0d0d0d;
+      --surface: #1a1a19;
+      --ink: #f0efec;
+      --ink-2: #c3c2b7;
+      --grid: #2c2c2a;
+      --axis: #383835;
+      --border: rgba(255,255,255,0.10);
+      --good: #0ca30c;
+      --meter-fill: #3987e5;
+      --meter-track: #104281;
+      --series-1: #3987e5;
+      --series-2: #d95926;
+      --series-3: #199e70;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --ink: #f0efec;
+    --ink-2: #c3c2b7;
+    --grid: #2c2c2a;
+    --axis: #383835;
+    --border: rgba(255,255,255,0.10);
+    --good: #0ca30c;
+    --meter-fill: #3987e5;
+    --meter-track: #104281;
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px 16px 48px;
+    background: var(--page); color: var(--ink);
+    font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  main { max-width: 880px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  h1 { font-size: 22px; margin: 0; }
+  h2 { font-size: 16px; margin: 0 0 4px; }
+  .sub { color: var(--ink-2); margin: 2px 0 0; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 16px;
+  }
+
+  /* progress meter */
+  .status-row { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .meter { height: 8px; border-radius: 4px; background: var(--meter-track); margin-top: 10px; overflow: hidden; }
+  .meter > div { height: 100%; background: var(--meter-fill); border-radius: 4px; transition: width .4s; }
+  @media (prefers-reduced-motion: reduce) { .meter > div { transition: none; } }
+
+  /* stat tiles */
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+  .tile .label { color: var(--ink-2); font-size: 14px; }
+  .tile .value { font-size: 32px; font-weight: 600; margin: 2px 0; }
+  .tile .note { font-size: 14px; color: var(--ink-2); min-height: 20px; }
+  .up { color: var(--good); } .down { color: var(--bad); }
+
+  /* charts */
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 8px 0 4px; color: var(--ink-2); font-size: 14px; }
+  .legend .key { display: inline-block; width: 18px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+  .chart { position: relative; margin-top: 8px; }
+  .chart svg { display: block; outline: none; }
+  .chart svg:focus-visible { outline: 2px solid var(--muted); outline-offset: 2px; border-radius: 4px; }
+  .tip {
+    position: absolute; pointer-events: none; display: none; min-width: 150px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.15); padding: 8px 10px; font-size: 13px;
+  }
+  .tip .head { color: var(--ink-2); margin-bottom: 4px; }
+  .tip .row { display: flex; align-items: center; gap: 12px; justify-content: space-between; }
+  .tip .row span.name { color: var(--ink-2); display: flex; align-items: center; gap: 6px; }
+  .tip .row b { font-weight: 600; color: var(--ink); }
+  .tip .key { display: inline-block; width: 12px; height: 3px; border-radius: 2px; }
+  .fine { color: var(--ink-2); font-size: 13px; margin: 6px 0 0; }
+
+  /* table */
+  .table-wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: right; padding: 6px 10px; border-bottom: 1px solid var(--grid); font-variant-numeric: tabular-nums; }
+  th:first-child, td:first-child, th:last-child, td:last-child { text-align: left; }
+  th { color: var(--ink-2); font-weight: 600; }
+  #conn { color: var(--bad); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Tzaar training</h1>
+    <p class="sub" id="status-line">Connecting...</p>
+    <p class="sub" id="conn" hidden>Can't reach the training process. It may have finished or been stopped.</p>
+  </header>
+
+  <section class="card">
+    <div class="status-row">
+      <div><strong id="status">Starting...</strong></div>
+      <div class="sub" id="elapsed"></div>
+    </div>
+    <div class="meter" role="progressbar" aria-label="Training progress" id="meter"><div id="meter-fill" style="width:0%"></div></div>
+  </section>
+
+  <section class="tiles">
+    <div class="card tile">
+      <div class="label">Best net rating (Elo)</div>
+      <div class="value" id="tile-best">–</div>
+      <div class="note" id="tile-best-note"></div>
+    </div>
+    <div class="card tile">
+      <div class="label">New nets accepted</div>
+      <div class="value" id="tile-accepted">–</div>
+      <div class="note" id="tile-accepted-note"></div>
+    </div>
+    <div class="card tile">
+      <div class="label">Generations tested</div>
+      <div class="value" id="tile-tested">–</div>
+      <div class="note" id="tile-tested-note"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Rating by generation</h2>
+    <div class="sub">Each new net is rated against the latest accepted nets and a random player. Higher is better.</div>
+    <div class="chart" id="chart-rating"><div class="tip"></div></div>
+    <p class="fine" id="note-rating"></p>
+  </section>
+
+  <section class="card">
+    <h2>Win rates</h2>
+    <div class="sub">How often each new net beat the opponent. 50% is an even match.</div>
+    <div class="legend" id="legend-win"></div>
+    <div class="chart" id="chart-win"><div class="tip"></div></div>
+    <p class="fine" id="note-win"></p>
+  </section>
+
+  <section class="card">
+    <h2>Numbers</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Generation</th><th>Rating</th><th>vs random</th><th>vs best</th><th>Result</th></tr></thead>
+        <tbody id="table-body"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<script>
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const pct = v => v == null ? '–' : Math.round(v * 100) + '%';
+
+// One entry per chart. `domain(rows)` gives the y range and tick step; `format` writes values.
+const CHARTS = [
+  {el: 'chart-rating', series: [{key: 'rating', label: 'Rating (Elo)', color: 'var(--series-1)'}],
+   domain: ratingDomain, format: v => String(Math.round(v)), activeGen: null},
+  {el: 'chart-win', series: [{key: 'vs_random', label: 'vs random', color: 'var(--series-2)'},
+                             {key: 'vs_best', label: 'vs best so far', color: 'var(--series-3)'}],
+   domain: () => ({min: 0, max: 1, step: 0.25}), format: pct, activeGen: null},
+];
+let data = null, fetchedAt = 0;
+
+const $ = id => document.getElementById(id);
+
+function el(tag, attrs = {}, style = {}, text) {
+  const e = document.createElementNS(SVG_NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  Object.assign(e.style, style);
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+function html(tag, props = {}, text) {
+  const e = document.createElement(tag);
+  Object.assign(e, props);
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+function fmtTime(seconds) {
+  const s = Math.floor(seconds), m = Math.floor(s / 60);
+  return `${m}:${String(s % 60).padStart(2, '0')}`;
+}
+// Rating axis: round to clean steps around the data, at least two steps tall
+function ratingDomain(rows) {
+  const values = rows.map(r => r.rating);
+  if (!values.length) return {min: 0, max: 400, step: 100};
+  const lo = Math.min(...values), hi = Math.max(...values);
+  const step = hi - lo > 600 ? 200 : 100;
+  const min = Math.floor((lo - 50) / step) * step;
+  return {min, max: Math.max(Math.ceil((hi + 50) / step) * step, min + 2 * step), step};
+}
+
+/* ---------- polling ---------- */
+async function poll() {
+  let wait = 1500;
+  try {
+    const r = await fetch('/api/progress', {cache: 'no-store'});
+    data = await r.json(); fetchedAt = Date.now();
+    $('conn').hidden = true;
+    render();
+    if (!data.running) return;
+  } catch (e) {
+    $('conn').hidden = false; wait = 3000;
+  }
+  setTimeout(poll, wait);
+}
+setInterval(() => { if (data && data.running) showElapsed(); }, 1000);
+function showElapsed() {
+  const extra = data.running ? (Date.now() - fetchedAt) / 1000 : 0;
+  $('elapsed').textContent = 'Elapsed ' + fmtTime(data.elapsed + extra);
+}
+
+/* ---------- page pieces ---------- */
+function render() {
+  $('status').textContent = data.running ? data.status : (data.summary || 'Done');
+  $('status-line').textContent = data.running ? 'Training in progress. This page updates by itself.' : 'Training finished.';
+  const fill = $('meter-fill');
+  if (!fill.dataset.drawn) { fill.style.transition = 'none'; fill.dataset.drawn = '1'; }
+  else fill.style.transition = '';
+  fill.style.width = Math.round(data.fraction * 100) + '%';
+  $('meter').setAttribute('aria-valuenow', Math.round(data.fraction * 100));
+  showElapsed();
+  renderTiles(); renderLegend(); drawCharts(); renderTable(); renderNotes();
+}
+
+function renderTiles() {
+  const rows = data.generations, tested = rows.filter(r => r.generation > 0);
+  const kept = rows.filter(r => r.accepted), latest = kept[kept.length - 1], gen0 = rows[0];
+
+  $('tile-best').textContent = latest ? String(Math.round(latest.rating)) : '–';
+  const note = $('tile-best-note'); note.textContent = ''; note.className = 'note';
+  if (latest && gen0 && latest !== gen0) {
+    const diff = Math.round(latest.rating - gen0.rating);
+    note.className = 'note ' + (diff > 0 ? 'up' : diff < 0 ? 'down' : '');
+    note.textContent = diff === 0 ? 'Same as generation 0'
+      : `${diff > 0 ? '▲ +' : '▼ '}${diff} Elo vs generation 0`;
+  } else if (latest) {
+    note.textContent = 'Generation 0 so far (random player = 0)';
+  }
+
+  const acceptedCount = tested.filter(r => r.accepted).length;
+  $('tile-accepted').textContent = tested.length ? String(acceptedCount) : '–';
+  $('tile-accepted-note').textContent = tested.length ? `of ${tested.length} tested` : 'None tested yet';
+  $('tile-tested').textContent = `${tested.length} / ${data.total_generations}`;
+  $('tile-tested-note').textContent = data.running ? 'In progress' : 'Complete';
+}
+
+function renderLegend() {
+  const box = $('legend-win'); box.textContent = '';
+  for (const s of CHARTS[1].series) {
+    const item = html('span');
+    const key = html('span', {className: 'key'}); key.style.background = s.color;
+    item.append(key, document.createTextNode(s.label));
+    box.append(item);
+  }
+}
+
+function renderTable() {
+  const body = $('table-body'); body.textContent = '';
+  for (const r of data.generations) {
+    const tr = html('tr');
+    tr.append(html('td', {}, r.generation === 0 ? '0 (starting net)' : String(r.generation)),
+              html('td', {}, String(Math.round(r.rating))), html('td', {}, pct(r.vs_random)), html('td', {}, pct(r.vs_best)));
+    const result = html('td');
+    if (r.generation === 0) result.textContent = 'Start';
+    else {
+      const icon = html('span', {className: r.accepted ? 'up' : 'down'}, r.accepted ? '✓ ' : '✕ ');
+      result.append(icon, document.createTextNode(r.accepted ? 'Accepted' : 'Rejected'));
+    }
+    tr.append(result); body.append(tr);
+  }
+  if (!data.generations.length) {
+    const tr = html('tr'); const td = html('td', {colSpan: 5}, 'Waiting for the first results...');
+    tr.append(td); body.append(tr);
+  }
+}
+
+function renderNotes() {
+  const se = Math.round(Math.sqrt(0.25 / Math.max(1, data.match_games)) * 100 * 10) / 10;
+  $('note-rating').textContent = 'The random player is 0. +100 Elo is about a 64% win rate, +200 about 76%. ' +
+    'Ratings are rough: differences under about 20 points are mostly noise. ✓ = new net accepted, ✕ = rejected.';
+  $('note-win').textContent = `Each point is a win rate over ${data.match_games} games, so gaps smaller than about ${se} points are mostly noise. ✓ = accepted, ✕ = rejected.`;
+}
+
+/* ---------- the charts ---------- */
+function drawCharts() { CHARTS.forEach(drawChart); }
+
+function drawChart(cfg) {
+  const wrap = $(cfg.el), tip = wrap.querySelector('.tip');
+  const W = Math.max(280, wrap.clientWidth), H = Math.round(Math.max(220, Math.min(320, W * 0.45)));
+  const rows = data.generations, N = Math.max(1, data.total_generations);
+  const {min, max, step} = cfg.domain(rows);
+  const m = {l: 48, r: 16, t: 12, b: 48};
+  const y = v => m.t + (1 - (v - min) / (max - min)) * (H - m.t - m.b);
+
+  // direct end labels only for 2+ series, with room, and when they don't collide (otherwise legend + tooltip carry it)
+  const endYs = cfg.series.map(s => rows.filter(r => r[s.key] != null).pop())
+                          .map((row, i) => row ? y(row[cfg.series[i].key]) : null)
+                          .filter(v => v !== null).sort((a, b) => a - b);
+  const collide = endYs.some((v, i) => i > 0 && v - endYs[i - 1] < 15);
+  const labelsFit = cfg.series.length > 1 && W >= 520 && !collide;
+  if (labelsFit) m.r = 112;
+  const x = g => m.l + (g / N) * (W - m.l - m.r);
+
+  const old = wrap.querySelector('svg'); if (old) old.remove();
+  const svg = el('svg', {width: W, height: H, viewBox: `0 0 ${W} ${H}`, tabindex: 0, role: 'img',
+                         'aria-label': 'Chart by generation, see the table below for the numbers'});
+
+  // gridlines + y axis labels
+  const epsilon = step / 1000;
+  for (let v = min; v <= max + epsilon; v += step) {
+    svg.append(el('line', {x1: m.l, x2: W - m.r, y1: y(v), y2: y(v)}, {stroke: v === min ? 'var(--axis)' : 'var(--grid)', strokeWidth: 1}));
+    svg.append(el('text', {x: m.l - 8, y: y(v) + 4, 'text-anchor': 'end', 'font-size': 11}, {fill: 'var(--muted)'}, cfg.format(v)));
+  }
+  // x axis labels (+ accepted/rejected icon)
+  for (let g = 0; g <= N; g++) {
+    svg.append(el('text', {x: x(g), y: H - m.b + 18, 'text-anchor': 'middle', 'font-size': 11}, {fill: 'var(--muted)'}, String(g)));
+    const row = rows.find(r => r.generation === g);
+    if (row && g > 0)
+      svg.append(el('text', {x: x(g), y: H - m.b + 34, 'text-anchor': 'middle', 'font-size': 12},
+                    {fill: row.accepted ? 'var(--good)' : 'var(--bad)'}, row.accepted ? '✓' : '✕'));
+  }
+  svg.append(el('text', {x: (m.l + W - m.r) / 2, y: H - 4, 'text-anchor': 'middle', 'font-size': 11}, {fill: 'var(--muted)'}, 'Generation'));
+
+  if (!rows.length)
+    svg.append(el('text', {x: (m.l + W - m.r) / 2, y: H / 2, 'text-anchor': 'middle', 'font-size': 13}, {fill: 'var(--ink-2)'}, 'Waiting for the first results...'));
+
+  const crosshair = el('line', {y1: m.t, y2: H - m.b}, {stroke: 'var(--axis)', strokeWidth: 1, display: 'none'});
+  svg.append(crosshair);
+
+  // lines, then markers (marker = series dot with a 2px surface ring)
+  const ends = [];
+  for (const s of cfg.series) {
+    const pts = rows.filter(r => r[s.key] != null).map(r => [x(r.generation), y(r[s.key])]);
+    if (pts.length > 1)
+      svg.append(el('path', {d: 'M' + pts.map(p => p.join(',')).join('L'), fill: 'none',
+                             'stroke-linejoin': 'round', 'stroke-linecap': 'round'}, {stroke: s.color, strokeWidth: 2}));
+    for (const [px, py] of pts) {
+      svg.append(el('circle', {cx: px, cy: py, r: 6.5}, {fill: 'var(--surface)'}));
+      svg.append(el('circle', {cx: px, cy: py, r: 4.5}, {fill: s.color}));
+    }
+    if (pts.length) ends.push({s, py: pts[pts.length - 1][1], px: pts[pts.length - 1][0]});
+  }
+  if (labelsFit)
+    for (const e of ends)
+      svg.append(el('text', {x: e.px + 12, y: e.py + 4, 'font-size': 12}, {fill: 'var(--ink-2)'}, e.s.label));
+
+  // hover / keyboard layer: snaps to the nearest generation
+  function show(gen) {
+    const row = rows.find(r => r.generation === gen);
+    if (!row) return hide();
+    cfg.activeGen = gen;
+    crosshair.setAttribute('x1', x(gen)); crosshair.setAttribute('x2', x(gen)); crosshair.style.display = '';
+    tip.textContent = '';
+    tip.append(html('div', {className: 'head'},
+      gen === 0 ? 'Generation 0 (starting net)' : `Generation ${gen} · ${row.accepted ? '✓ accepted' : '✕ rejected'}`));
+    for (const s of cfg.series) {
+      if (row[s.key] == null) continue;
+      const line = html('div', {className: 'row'});
+      const name = html('span', {className: 'name'});
+      const key = html('span', {className: 'key'}); key.style.background = s.color;
+      name.append(key, document.createTextNode(s.label));
+      line.append(name, html('b', {}, cfg.format(row[s.key])));
+      tip.append(line);
+    }
+    tip.style.display = 'block';
+    const left = x(gen) + 14 + tip.offsetWidth > W ? x(gen) - 14 - tip.offsetWidth : x(gen) + 14;
+    tip.style.left = Math.max(0, left) + 'px'; tip.style.top = m.t + 'px';
+  }
+  function hide() { cfg.activeGen = null; crosshair.style.display = 'none'; tip.style.display = 'none'; }
+  svg.addEventListener('pointermove', ev => {
+    if (!rows.length) return;
+    const px = ev.clientX - svg.getBoundingClientRect().left;
+    const nearest = rows.reduce((a, b) => Math.abs(x(b.generation) - px) < Math.abs(x(a.generation) - px) ? b : a);
+    show(nearest.generation);
+  });
+  svg.addEventListener('pointerleave', hide);
+  svg.addEventListener('blur', hide);
+  svg.addEventListener('keydown', ev => {
+    if (!rows.length || (ev.key !== 'ArrowLeft' && ev.key !== 'ArrowRight')) return;
+    const gens = rows.map(r => r.generation);
+    const i = cfg.activeGen === null ? gens.length - 1 : gens.indexOf(cfg.activeGen) + (ev.key === 'ArrowRight' ? 1 : -1);
+    show(gens[Math.max(0, Math.min(gens.length - 1, i))]); ev.preventDefault();
+  });
+  wrap.append(svg);
+  if (cfg.activeGen !== null) show(cfg.activeGen);
+}
+
+let resizeTimer;
+window.addEventListener('load', () => data && drawCharts());
+window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => data && drawCharts(), 100); });
+poll();
+</script>
+</body>
+</html>
