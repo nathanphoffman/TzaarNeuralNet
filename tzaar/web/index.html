@@ -1,0 +1,110 @@
+<!doctype html>
+<meta charset="utf-8"><title>Tzaar vs Net</title>
+<style>
+  body{font-family:sans-serif;text-align:center;margin:20px}
+  svg{max-width:560px;width:100%;height:auto}
+  #status{font-size:18px;margin:10px;min-height:24px}
+  button,select{font-size:15px;padding:4px 10px}
+  .legend{color:#555;font-size:14px;margin-top:8px}
+</style>
+<h2>Tzaar vs the Net</h2>
+<label>Play as
+  <select id="side"><option value="1">White (moves first)</option><option value="-1">Black</option></select>
+</label>
+<button onclick="newGame()">New game</button>
+<button id="pass" onclick="humanMove([-1,-1])">Pass</button>
+<div id="status"></div>
+<svg id="board" viewBox="-260 -230 520 460"></svg>
+<div class="legend">Plain = Tott, ring = Tzaara, ring + dot = Tzaar. Small red number = stack height.<br>
+Click one of your pieces, then a highlighted target: red = capture, green = stack.</div>
+<script>
+const SIZE = 34;
+let game, legal = [], points = [], human = 1, selected = null, lastMove = null, busy = false;
+const board = document.getElementById('board'), statusEl = document.getElementById('status');
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const xy = ([q, r]) => [SIZE * Math.sqrt(3) * (q + r / 2), SIZE * 1.5 * r];
+
+async function api(path, body) {
+  const r = await fetch(path, {method: 'POST', body: JSON.stringify(body)});
+  return r.json();
+}
+function apply(resp) {
+  game = resp.state; legal = resp.legal_moves; points = resp.points;
+  if (resp.last_move) lastMove = resp.last_move;
+  selected = null; render();
+}
+async function newGame() {
+  human = Number(document.getElementById('side').value); lastMove = null;
+  apply(await api('/api/new', {}));
+  await aiTurns();
+}
+async function humanMove(move) {
+  if (busy || game.result || game.to_move !== human) return;
+  busy = true;
+  apply(await api('/api/move', {state: game, move}));
+  await aiTurns();
+}
+async function aiTurns() {
+  busy = true; render();
+  while (game.result === 0 && game.to_move !== human) {
+    await sleep(600);
+    apply(await api('/api/ai', {state: game}));
+  }
+  busy = false; render();
+}
+function onPoint(i) {
+  if (busy || game.result || game.to_move !== human) return;
+  if (selected !== null && legal.some(m => m[0] === selected && m[1] === i)) return humanMove([selected, i]);
+  selected = legal.some(m => m[0] === i) ? i : null;
+  render();
+}
+function svg(tag, attrs, text) {
+  const e = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+function render() {
+  board.innerHTML = '';
+  const pos = points.map(xy);
+  // board lines between neighbouring points
+  points.forEach(([q, r], i) => points.forEach(([q2, r2], j) => {
+    const dq = q2 - q, dr = r2 - r;
+    if (j > i && Math.max(Math.abs(dq), Math.abs(dr), Math.abs(dq + dr)) === 1)
+      board.appendChild(svg('line', {x1: pos[i][0], y1: pos[i][1], x2: pos[j][0], y2: pos[j][1], stroke: '#bbb'}));
+  }));
+  const targets = new Map(legal.filter(m => m[0] === selected && selected !== null).map(m => [m[1], true]));
+  points.forEach((_, i) => {
+    const [x, y] = pos[i], owner = game.owner[i];
+    const g = svg('g', {style: 'cursor:pointer'});
+    g.onclick = () => onPoint(i);
+    if (lastMove && (lastMove[1] === i || lastMove[0] === i))
+      g.appendChild(svg('circle', {cx: x, cy: y, r: 21, fill: 'none', stroke: '#38f', 'stroke-width': 3,
+                                   'stroke-dasharray': owner ? '' : '4 3'}));
+    if (owner) {
+      g.appendChild(svg('circle', {cx: x, cy: y, r: 16, fill: owner === 1 ? '#f4efe6' : '#222', stroke: '#555', 'stroke-width': 2}));
+      const mark = owner === 1 ? '#222' : '#eee';      // Tott = plain; Tzaara = ring; Tzaar = ring + dot
+      if (game.kind[i] !== 2)
+        g.appendChild(svg('circle', {cx: x, cy: y, r: 12, fill: 'none', stroke: mark, 'stroke-width': 2.5}));
+      if (game.kind[i] === 0)
+        g.appendChild(svg('circle', {cx: x, cy: y, r: 3.5, fill: mark}));
+      if (game.height[i] > 1)
+        g.appendChild(svg('text', {x: x + 14, y: y + 14, 'text-anchor': 'middle', 'font-size': 12, 'font-weight': 'bold',
+                                   fill: '#c00'}, game.height[i]));
+    } else {
+      g.appendChild(svg('circle', {cx: x, cy: y, r: 4, fill: '#ccc'}));
+    }
+    if (i === selected) g.appendChild(svg('circle', {cx: x, cy: y, r: 20, fill: 'none', stroke: '#fb0', 'stroke-width': 4}));
+    if (targets.has(i)) g.appendChild(svg('circle', {cx: x, cy: y, r: 20, fill: 'none', 'stroke-width': 4,
+                                                      stroke: owner === human ? '#2a2' : '#d22'}));
+    board.appendChild(g);
+  });
+  document.getElementById('pass').disabled = busy || game.result || game.to_move !== human || !legal.some(m => m[0] < 0);
+  statusEl.textContent = !game ? '' : game.result ? (game.result === human ? 'You win!' : 'Net wins!')
+    : busy || game.to_move !== human ? 'Net is thinking...'
+    : game.phase === 0 ? (game.is_first_turn ? 'Your first move: capture an enemy piece (only one action this turn)'
+                                             : 'Your turn: capture an enemy piece')
+    : 'Second action: capture, stack, or pass';
+}
+newGame();
+</script>

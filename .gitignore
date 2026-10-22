@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+
+# Trained models
+*.npz
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
