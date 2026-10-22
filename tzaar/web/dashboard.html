@@ -167,7 +167,7 @@
     <h2>Numbers</h2>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Generation</th><th>Rating</th><th>vs random</th><th>vs best</th><th>Result</th></tr></thead>
+        <thead><tr><th>Generation</th><th>Rating</th><th>vs random</th><th>vs best</th><th>Games</th><th>Result</th></tr></thead>
         <tbody id="table-body"></tbody>
       </table>
     </div>
@@ -287,7 +287,8 @@ function renderTable() {
   for (const r of [...data.generations].reverse()) {          // newest first
     const tr = html('tr');
     tr.append(html('td', {}, r.generation === 0 ? '0 (starting net)' : String(r.generation)),
-              html('td', {}, String(Math.round(r.rating))), html('td', {}, pct(r.vs_random)), html('td', {}, pct(r.vs_best)));
+              html('td', {}, String(Math.round(r.rating))), html('td', {}, pct(r.vs_random)), html('td', {}, pct(r.vs_best)),
+              html('td', {}, r.generation === 0 || r.games == null ? '–' : String(r.games)));
     const result = html('td');
     if (r.generation === 0) result.textContent = 'Start';
     else {
@@ -297,16 +298,19 @@ function renderTable() {
     tr.append(result); body.append(tr);
   }
   if (!data.generations.length) {
-    const tr = html('tr'); const td = html('td', {colSpan: 5}, 'Waiting for the first results...');
+    const tr = html('tr'); const td = html('td', {colSpan: 6}, 'Waiting for the first results...');
     tr.append(td); body.append(tr);
   }
 }
 
 function renderNotes() {
-  const se = Math.round(Math.sqrt(0.25 / Math.max(1, data.match_games)) * 100 * 10) / 10;
+  const games = data.generations.filter(r => r.generation > 0).map(r => r.games ?? data.match_games);
+  const fewest = games.length ? Math.min(...games) : data.match_games, most = games.length ? Math.max(...games) : data.match_games;
+  const se = Math.round(Math.sqrt(0.25 / Math.max(1, fewest)) * 100 * 10) / 10;
+  const range = fewest === most ? `${fewest}` : `${fewest} to ${most}`;
   $('note-rating').textContent = 'The random player is 0. +100 Elo is about a 64% win rate, +200 about 76%. ' +
     'Ratings are rough: differences under about 20 points are mostly noise. ✓ = new net accepted, ✕ = rejected.';
-  $('note-win').textContent = `Each point is a win rate over ${data.match_games} games, so gaps smaller than about ${se} points are mostly noise. ✓ = accepted, ✕ = rejected.`;
+  $('note-win').textContent = `Each point is a win rate over ${range} games (later generations play more), so gaps smaller than about ${se} points are mostly noise early on. ✓ = accepted, ✕ = rejected.`;
 }
 
 /* ---------- the charts ---------- */

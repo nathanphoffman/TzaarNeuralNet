@@ -14,6 +14,12 @@ class Net:
         self.W2 = rng.normal(0, 0.3, (hidden, 1)).astype(np.float32)
         self.b2 = np.zeros(1, dtype=np.float32)
 
+    def copy(self):
+        """An independent copy with the same weights (used to warm-start the next generation)."""
+        other = Net.__new__(Net)
+        other.W1, other.b1, other.W2, other.b2 = self.W1.copy(), self.b1.copy(), self.W2.copy(), self.b2.copy()
+        return other
+
     def predict(self, X):
         self.hidden = np.tanh(X @ self.W1 + self.b1)
         return np.tanh(self.hidden @ self.W2 + self.b2).ravel()
