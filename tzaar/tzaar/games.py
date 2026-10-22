@@ -3,6 +3,7 @@ import numpy as np
 
 from .encoding import encode_state
 from .game import new_game
+from .rng import rng
 
 
 def play_game(white_player, black_player, record=True):
@@ -20,11 +21,13 @@ def play_game(white_player, black_player, record=True):
     return positions, labels, state.result
 
 
-def generate_training_data(player_a, player_b, num_games):
-    """Play many games and return (X, y) training arrays. Alternates who is White."""
+def generate_training_data(player, opponents, num_games, weights=None):
+    """Play many games and return (X, y) training arrays. Each game's opponent is drawn at
+    random from `opponents`, with probabilities `weights` (equal if None). Alternates who is White."""
     X, y = [], []
-    for i in range(num_games):
-        white, black = (player_a, player_b) if i % 2 == 0 else (player_b, player_a)
+    for i, choice in enumerate(rng.choice(len(opponents), size=num_games, p=weights)):
+        opponent = opponents[choice]
+        white, black = (player, opponent) if i % 2 == 0 else (opponent, player)
         positions, labels, _ = play_game(white, black)
         X += positions
         y += labels

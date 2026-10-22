@@ -26,6 +26,7 @@ WARM_START_EPOCHS = 10
 WARM_START_LEARNING_RATE = 0.02
 OPPONENTS_BACK = 3            # a new net is rated against this many of the latest accepted nets
 SELF_PLAY_EPSILON = 0.2       # share of random moves in self-play, for variety
+OLDER_NET_WEIGHT = 0.5        # in self-play, each net one step older is this much less likely to be the opponent
 BATCHES_TO_KEEP = 3           # how many recent batches of data to train on
 MIN_SCORE_VS_BEST = 0.55      # challenger must beat the current best by this much
 
@@ -51,7 +52,7 @@ def start_new_run():
     Returns (history, rated_nets, batches) ready for the self-play generations."""
     print(f"STEP 1: {RANDOM_GAMES:,} random-vs-random games")
     progress.step("Playing random-vs-random games")
-    X, y = generate_training_data(random_player, random_player, RANDOM_GAMES)
+    X, y = generate_training_data(random_player, [random_player], RANDOM_GAMES)
     print(f"   {len(X)} positions recorded")
 
     print("STEP 2: train generation 0 on random data")
@@ -69,13 +70,24 @@ def start_new_run():
     return history, rated_nets, [(X, y)]
 
 
-def rebuild_batches(best, next_generation):
+def self_play_opponents(rated_nets):
+    """The best net plays each self-play game against a net drawn from all accepted nets.
+    Newest first, each step back less likely, so really old nets only turn up now and then.
+    Returns (the best net as an explorer, opponent players, their probabilities, generation numbers)."""
+    nets = list(reversed(rated_nets))
+    weights = np.array([OLDER_NET_WEIGHT ** age for age in range(len(nets))])
+    players = [make_net_player(net, epsilon=SELF_PLAY_EPSILON) for _, net, _ in nets]
+    return players[0], players, weights / weights.sum(), [generation for generation, _, _ in nets]
+
+
+def rebuild_batches(rated_nets, next_generation):
     """The saved checkpoint doesn't include training data, so make fresh self-play batches
     (one fewer than we keep; the first generation adds the last one)."""
     progress.step("Rebuilding training data from the best net")
-    explorer = make_net_player(best, epsilon=SELF_PLAY_EPSILON)
+    explorer, opponents, weights, _ = self_play_opponents(rated_nets)
     games = games_for(next_generation, MAX_SELF_PLAY_GAMES)
-    return [generate_training_data(explorer, explorer, games) for _ in range(BATCHES_TO_KEEP - 1)]
+    return [generate_training_data(explorer, opponents, games, weights)
+            for _ in range(BATCHES_TO_KEEP - 1)]
 
 
 def run_self_play_generations(generations, history, rated_nets, batches):
@@ -95,8 +107,10 @@ def run_self_play_generations(generations, history, rated_nets, batches):
         match_games = games_for(generation, MAX_MATCH_GAMES)
 
         progress.step(f"Generation {generation}: best net plays itself ({self_play_games} games)")
-        explorer = make_net_player(best, epsilon=SELF_PLAY_EPSILON)
-        batches = (batches + [generate_training_data(explorer, explorer, self_play_games)])[-BATCHES_TO_KEEP:]
+        explorer, opponents, weights, generations_in_pool = self_play_opponents(rated_nets)
+        mix = ", ".join(f"gen {g} {w:.0%}" for g, w in zip(generations_in_pool, weights) if w >= 0.005)
+        print(f"   gen {generation}: self-play opponents: {mix}")
+        batches = (batches + [generate_training_data(explorer, opponents, self_play_games, weights)])[-BATCHES_TO_KEEP:]
 
         progress.step(f"Generation {generation}: training a new net")
         X = np.concatenate([X for X, _ in batches])
@@ -150,7 +164,7 @@ def train_model(generations=NUM_GENERATIONS, fresh=False):
                        None if open_ended else 1 + STEPS_PER_GENERATION * generations,
                        MAX_MATCH_GAMES, rows=history, setup_steps=1,
                        steps_per_generation=STEPS_PER_GENERATION)
-        batches = rebuild_batches(rated_nets[-1][1], last + 1)
+        batches = rebuild_batches(rated_nets, last + 1)
 
     best, rating, vs_random = run_self_play_generations(generations, history, rated_nets, batches)
     print(f"FINAL: best net rating {rating:.0f} (random player = 0), wins {vs_random:.0%} vs random")
