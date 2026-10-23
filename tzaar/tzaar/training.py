@@ -44,7 +44,10 @@ NEAR_MISS_SCORE = 0.50        # a rejected net that still won this much vs the b
 # best net than any donor so far, it becomes a "donor" (the latest few are kept). New challengers get the average
 # of the donors' weights for those inputs, which smooths out lucky scores. The donors are dropped when a net is
 # accepted, because the new best net carries its own weights for them.
+# The donors also supply the parts of the net that were added later and so haven't been proven yet: the hidden
+# neurons beyond the first PROVEN_HIDDEN (the net used to be that narrow) and the second hidden layer.
 DONORS_TO_KEEP = 3
+PROVEN_HIDDEN = 64
 
 # A net that fails narrowly gets one re-test against the best net before it is rejected, because a
 # normal test (a few hundred games) is only accurate to about +-2.5 points. The re-test result alone decides:
@@ -145,6 +148,21 @@ def rebase_best_rating(rated_nets, games):
     rated_nets[-1] = (generation, best, new_rating)
 
 
+def apply_donors(challenger, donors):
+    """Give the challenger the average of the donors' weights for the parts that are not from the best net."""
+    nets = [net for _, net, _ in donors]
+
+    def average(part, rows=slice(None), columns=slice(None)):
+        return np.mean([getattr(net, part)[rows, columns] for net in nets], axis=0)
+
+    challenger.W1[SIGNALS_START:] = average("W1", slice(SIGNALS_START, None))
+    challenger.W1[:SIGNALS_START, PROVEN_HIDDEN:] = average("W1", slice(None, SIGNALS_START), slice(PROVEN_HIDDEN, None))
+    challenger.b1[PROVEN_HIDDEN:] = np.mean([net.b1[PROVEN_HIDDEN:] for net in nets], axis=0)
+    challenger.W2[PROVEN_HIDDEN:] = average("W2", slice(PROVEN_HIDDEN, None))
+    for part in ("V", "c", "U"):
+        setattr(challenger, part, np.mean([getattr(net, part) for net in nets], axis=0))
+
+
 def run_self_play_generations(generations, history, rated_nets, near_misses, batches, donors=()):
     """Each generation: the best net plays older nets (and itself), a new net trains on the data,
     and it replaces the best net only if it passes the acceptance checks.
@@ -172,7 +190,7 @@ def run_self_play_generations(generations, history, rated_nets, near_misses, bat
         if WARM_START:
             challenger = best.copy()
             if donors:
-                challenger.W1[SIGNALS_START:] = np.mean([net.W1[SIGNALS_START:] for _, net, _ in donors], axis=0)
+                apply_donors(challenger, donors)
             challenger.train(X, y, epochs=WARM_START_EPOCHS, learning_rate=WARM_START_LEARNING_RATE)
         else:
             challenger = Net()
@@ -251,7 +269,10 @@ def train_model(generations=None, fresh=False):
             generation, best, rating = rated_nets[-1]
             rated_nets[-1] = (generation, best.deepened(), rating)
             print(f"Added a second hidden layer of {HIDDEN2} neurons to the best net (gen {generation})")
-        donors = [(g, net.widened(), score) for g, net, score in donors]
+        kept = [(g, net.widened(), score) for g, net, score in donors if net.V is not None]
+        if len(kept) < len(donors):
+            print(f"Dropped {len(donors) - len(kept)} saved donors that were made before the second layer existed")
+        donors = kept
         last = history[-1]["generation"]
         print(f"Resuming after generation {last}. Best net so far: generation {rated_nets[-1][0]}, "
               f"rating {rated_nets[-1][2]:.0f}; {len(near_misses)} near-miss nets saved")
