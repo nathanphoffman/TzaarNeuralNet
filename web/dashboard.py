@@ -15,7 +15,7 @@ from tzaar.learning.checkpoint import HISTORY_KEY
 from tzaar.learning.checkpoint_paths import history_path
 from tzaar.nets.model_store import list_models, model_dir
 from tzaar.runs.progress import ELAPSED_KEY, RUNNING_KEY
-from tzaar.serving.web_response import HTML_TYPE, HTTP_NOT_FOUND, send, send_json
+from web.web_response import HTML_TYPE, HTTP_NOT_FOUND, send, send_json
 
 DASHBOARD_HTML = Path(__file__).resolve().parent / "pages" / "dashboard.html"
 PORT = 8002
