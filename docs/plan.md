@@ -29,14 +29,14 @@ Margins are slim on purpose. A net that is only equal to the best does little ha
 - **Outcome:** 52% or more accepts, 50% to 52% rejects but keeps it as a near miss, under 50% rejects.
 - **Rating after an accept:** a net accepted after a re-test is rated as the old best's rating plus the Elo gap from the re-test win rate (not the noisy three-opponent average), so the best net's rating can't drift down.
 - **Cost:** about a minute, and only for the few generations that qualify.
-- Settings: `RETEST_GAMES`, `RETEST_MIN_SCORE`, `RETEST_RATING_SLACK` in `training.py`.
+- Settings: `RETEST_GAMES`, `RETEST_MIN_SCORE`, `RETEST_RATING_SLACK` in `settings.py`.
 
 ## Things to handle
 
 - **Re-rate the best net once on resume.** Its stored rating includes the random leg, so comparing it with new ratings would make check 2 too hard. On the first resume after the change, play the current best against the same last-3 opponents and store the new rating.
 - **The two checks overlap a little,** because the best net is one of the 3 opponents in the rating. They are not two fully separate votes.
 - **Old history rows** keep their old ratings (with the random leg). The dashboard chart will have a small step where the rating basis changes. Either note it in the README or mark the change point on the chart.
-- **Settings** go at the top of `training.py`: `MIN_SCORE_VS_BEST = 0.52`, `MIN_RATING_GAIN = 5`, optional `MIN_SCORE_VS_RANDOM = 0.90`.
+- **Settings** go in `settings.py`: `MIN_SCORE_VS_BEST = 0.52`, `MIN_RATING_GAIN = 5`, optional `MIN_SCORE_VS_RANDOM = 0.90`.
 
 ## Steps
 

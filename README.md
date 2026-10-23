@@ -23,7 +23,7 @@ They use a temporary models folder, so they never touch `models/`.
 
 Each model is a folder in `models/` (`evolution-1`, `evolution-2`) with its own `model.npz`, `checkpoint/` and `config.json`. To add one, make a new folder (e.g. `models/evolution-3`) and run `uv run train.py`. Every model trains in its own process and knows nothing about the others.
 
-`config.json` holds that model's settings; `{}` means the defaults in the code. It can set `"seed"`, `"workers"` (game processes, default 6 per model) and any capitalised constant from `tzaar/training.py`, e.g. `{"MIN_SCORE_VS_BEST": 0.53}`.
+`config.json` holds that model's settings; `{}` means the defaults in the code. It can set `"seed"`, `"workers"` (game processes, default 6 per model) and any capitalised constant from `tzaar/learning/settings.py`, e.g. `{"MIN_SCORE_VS_BEST": 0.53}`.
 
 ## Stopping and resuming
 
@@ -58,7 +58,7 @@ The training data isn't saved. On resume it is rebuilt from a few fresh self-pla
 
 Every new net gets an Elo-style rating (random player = 0, +100 is about a 64% win rate). It is the average of what its head-to-head results against the last 3 accepted nets imply. The random player is left out of that average on purpose (it is nearly maxed out and very noisy). A rating that stops climbing means the setup has hit its ceiling.
 
-**A new net is accepted only if all of these hold** (settings at the top of `tzaar/training.py`):
+**A new net is accepted only if all of these hold** (settings at the top of `tzaar/learning/settings.py`):
 1. It wins at least 52% of games against the best net.
 2. Its rating is at least 5 Elo above the best net's.
 3. It still beats a random player at least 90% of the time (a safety floor).
@@ -71,29 +71,22 @@ Checkpoints from before this rule load fine: on the first resume the best net is
 
 **What the net sees (797 inputs):** for each of the 60 points, which piece is there and how tall the stack is (720 numbers), a flag for "the same player moves again", how many stacks of each type each side has left (6 numbers, as a share of the starting count), 6 "only one left" danger flags, and a 60-point threat map marking which of your stacks the opponent could capture next move, how many captures each side could make (2 numbers), and 2 "no capture available" flags (a side that cannot capture on its turn loses). Nets saved before the newest inputs existed still load: the missing weights are filled with zeros, so they play exactly as before and can learn to use the new inputs. The code sets numpy to one thread (in `tzaar/__init__.py`), because on a many-core machine its default threading makes these small matrix multiplications 10 to 25 times slower.
 
-The net looks one action ahead: it tries every legal action, scores the resulting position, and plays the best. That makes it a basic player, not a strong one. Settings are at the top of `tzaar/training.py`.
+The net looks one action ahead: it tries every legal action, scores the resulting position, and plays the best. That makes it a basic player, not a strong one. Settings are at the top of `tzaar/learning/settings.py`.
 
 ## Layout
 
 ```
 train.py, serve.py     entry points
 tzaar/
-  board.py             the 60 points and the lines between them
-  game.py              rules: State, legal moves, win conditions, new_game
-  encoding.py          positions -> numbers for the network
-  network.py           the neural network
-  players.py           random player and net player
-  games.py             play games, make training data, run matches
-  training.py          the generation loop
-  model_store.py       save / load a model's nets, list the models
-  config.py            per-model settings (config.json)
-  runner.py            one training process per model
-  progress.py          training progress, shared with the dashboard
-  dashboard.py         the training dashboard server
-  server.py            the game web server
-  web_response.py      sending a response, shared by the two web servers
+  rules/               the game: board.py (the 60 points), game.py (State, legal moves, win conditions),
+                       encoding.py (positions -> numbers), rng.py (the shared random generator)
+  nets/                network.py, players.py (random and net players), games.py (play games, make training
+                       data, run matches), rating.py (Elo), model_store.py (save / load a model's nets)
+  learning/            training.py (the generation loop), generation.py (one generation's steps), policy.py,
+                       settings.py (all the training settings), checkpoint.py + checkpoint_paths.py
+  runs/                runner.py (one process per model), config.py (per-model settings), progress.py
+  serving/             server.py (play), dashboard.py (training), web_response.py, pages/ (the two web pages)
 tests/                 unit tests
-web/index.html         the game board page
-web/dashboard.html     the training dashboard page
+docs/                  plan.md, UNPROVEN_CHANGES.md
 models/<name>/         one folder per model: model.npz, checkpoint/, config.json
 ```

@@ -11,12 +11,13 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from .checkpoint import HISTORY_KEY, history_path
-from .model_store import list_models, model_dir
-from .progress import ELAPSED_KEY, RUNNING_KEY
-from .web_response import HTML_TYPE, send, send_json
+from tzaar.learning.checkpoint import HISTORY_KEY
+from tzaar.learning.checkpoint_paths import history_path
+from tzaar.nets.model_store import list_models, model_dir
+from tzaar.runs.progress import ELAPSED_KEY, RUNNING_KEY
+from tzaar.serving.web_response import HTML_TYPE, HTTP_NOT_FOUND, send, send_json
 
-DASHBOARD_HTML = Path(__file__).resolve().parent.parent / "web" / "dashboard.html"
+DASHBOARD_HTML = Path(__file__).resolve().parent / "pages" / "dashboard.html"
 PORT = 8002
 
 def _alive(process_id):
@@ -65,7 +66,7 @@ class Handler(BaseHTTPRequestHandler):
             name = parse_qs(parsed_url.query).get("model", [""])[0]
 
             if name not in list_models():
-                return send_json(self, {"error": "unknown model"}, status=404, no_store=True)
+                return send_json(self, {"error": "unknown model"}, status=HTTP_NOT_FOUND, no_store=True)
 
             send_json(self, model_progress(name), no_store=True)
         else:

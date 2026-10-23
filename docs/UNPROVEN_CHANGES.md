@@ -24,7 +24,7 @@ to the README; when it is backed out, delete its section.
 - `SECOND_LAYER_RATE = 0.1`: the layer learns at a tenth of the normal learning rate, so it cannot unsettle a net
   that is already tuned. The first attempt used the full rate and the challengers dropped to about 0.38.
 - `model_store.py` saves and loads V, c and U. Older nets without them load fine and still work as opponents.
-- Donors (`apply_donors` in `training.py`, `PROVEN_HIDDEN = 64`): new challengers get the average of the donors'
+- Donors (`apply_donors` in `policy.py`, `PROVEN_HIDDEN = 64`): new challengers get the average of the donors'
   weights for the layer, for the hidden neurons beyond the first 64, and for the newest inputs. The first 64
   neurons always come from the best net.
 
@@ -32,7 +32,7 @@ to the README; when it is backed out, delete its section.
 
 - `BATCHES_TO_KEEP`: 5 -> 8 -> 2. Each new net trains on the games from the last 2 generations (it was 3, then 5,
   then 8). It is only 2 because each batch is now huge, see `MAX_SELF_PLAY_GAMES`.
-- Epochs: was a fixed `WARM_START_EPOCHS` (10 -> 6 -> 2 -> 1), now `epochs_for(rating)` in `training.py`:
+- Epochs: was a fixed `WARM_START_EPOCHS` (10 -> 6 -> 2 -> 1), now `epochs_for(rating)` in `policy.py`:
   `max(1, round(6 - rating / 100))` using the best net's rating, so 6 at rating 0, 3 at 300, and 1 from about 500
   up (the current run is at 1). Each new net makes fewer passes over that data, so it drifts less from the
   best net it started from. Each position is labeled with the result of the whole game, which is noisy, so many
@@ -68,7 +68,7 @@ inputs. In normal games those situations are rare, so the net sees few examples 
 - Code: the layer and donor changes are in `0011bc0`. To turn the layer off without removing the code, make
   `Net.__init__` and `Net.deepened()` skip `add_second_layer`, and remove the "Added a second hidden layer" step in
   `train_model`.
-- The batches and epochs are single numbers at the top of `training.py`.
+- The batches and epochs are single numbers in `settings.py`.
 
 ## How to judge them
 

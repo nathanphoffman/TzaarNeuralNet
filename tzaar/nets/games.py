@@ -3,13 +3,14 @@ import multiprocessing
 
 import numpy as np
 
-from .encoding import encode_state
-from .game import new_game
-from .rng import random_generator
+from tzaar.rules.encoding import encode_batch
+from tzaar.rules.game import new_game
+from tzaar.rules.rng import random_generator
 
 # Playing games is most of the time spent in training, and games are independent of each other, so they are played in
 # parallel. 6 of a 16-thread machine, so that two runs can train side by side (12 if only one is running) and
 # there is still room for the dashboard and anything else running at the same time.
+SEED_RANGE = 2 ** 32           # workers get a random seed below this
 WORKERS = 6                   # processes that play games at the same time
 
 _job = None                   # the work for the current batch of games; set before the workers are forked
@@ -28,7 +29,7 @@ def _in_parallel(work_function, num_games):
     global _job
     _job = work_function
     chunks = [chunk for chunk in np.array_split(np.arange(num_games), WORKERS) if len(chunk)]
-    seeds = random_generator.integers(2 ** 32, size=len(chunks))
+    seeds = random_generator.integers(SEED_RANGE, size=len(chunks))
 
     with multiprocessing.get_context("fork").Pool(len(chunks)) as pool:
         return pool.map(_run_chunk, list(zip(chunks, seeds)))
@@ -45,7 +46,9 @@ def play_game(white_player, black_player, record=True):
         state.play(player(state))
 
         if record:
-            history.append((encode_state(state, actor), actor))
+            # the position seen from the side that just acted, as a batch of one
+            history.append((encode_batch(np.array([state.owner]), np.array([state.kind]), np.array([state.height]),
+                                         actor, [state.to_move == actor])[0], actor))
 
     positions = [position for position, _ in history]
     labels = [1.0 if actor == state.result else -1.0 for _, actor in history]
@@ -78,8 +81,8 @@ def generate_training_data(player, opponents, num_games, weights=None):
 
     return np.array(inputs), np.array(targets, dtype=np.float32)
 
-def play_match(player_a, player_b, num_games):
-    """player_a's (wins, losses) over num_games, alternating who is White."""
+def win_rate(player_a, player_b, num_games):
+    """The share of num_games that player_a wins, 0 to 1 (Tzaar has no draws). Alternates who is White."""
 
     def play_some(game_numbers):
         wins = 0
@@ -94,11 +97,4 @@ def play_match(player_a, player_b, num_games):
 
         return int(wins)
 
-    wins = sum(_in_parallel(play_some, num_games))
-
-    return wins, num_games - wins
-
-def match_score(wins, losses):
-    """Share of games won, 0 to 1 (Tzaar has no draws)."""
-
-    return wins / (wins + losses)
+    return sum(_in_parallel(play_some, num_games)) / num_games

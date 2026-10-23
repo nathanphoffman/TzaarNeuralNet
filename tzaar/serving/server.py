@@ -11,14 +11,15 @@ import json
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
-from .board import POINTS
-from .checkpoint import GENERATION_KEY, NETS_KEY, RATING_KEY, history_path, net_path
-from .game import State, new_game
-from .model_store import list_models, load_net
-from .players import make_net_player
-from .web_response import HTML_TYPE, send, send_json
+from tzaar.rules.board import POINTS
+from tzaar.learning.checkpoint import GENERATION_KEY, NETS_KEY, RATING_KEY
+from tzaar.learning.checkpoint_paths import history_path, net_path
+from tzaar.rules.game import State, new_game
+from tzaar.nets.model_store import list_models, load_net
+from tzaar.nets.players import make_net_player
+from tzaar.serving.web_response import HTML_TYPE, HTTP_BAD_REQUEST, send, send_json
 
-INDEX_HTML = Path(__file__).resolve().parent.parent / "web" / "index.html"
+INDEX_HTML = Path(__file__).resolve().parent / "pages" / "index.html"
 PORT = 8001
 
 def accepted_nets(name):
@@ -77,7 +78,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             send_json(self, self._handle_api(request))
         except (KeyError, ValueError) as error:
-            send_json(self, {"error": str(error)}, status=400)      # a bad request: tell the page what was wrong
+            send_json(self, {"error": str(error)}, status=HTTP_BAD_REQUEST)      # a bad request: tell the page what was wrong
 
     def _handle_api(self, request):
         """Run one of the /api/ calls from the module docstring and return the new game state."""

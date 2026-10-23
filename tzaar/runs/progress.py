@@ -7,6 +7,7 @@ import json
 import os
 import threading
 import time
+DEFAULT_STEPS_PER_GENERATION = 3      # self-play, training, testing (see training.py)
 RUNNING_KEY = "running"        # keys of the progress snapshot that the dashboard also reads
 ELAPSED_KEY = "elapsed"
 
@@ -31,7 +32,7 @@ class Progress:
         temp.write_text(json.dumps(snapshot))
         temp.replace(self._path)
 
-    def start(self, total_generations, total_steps, match_games, rows=(), setup_steps=0, steps_per_generation=3):
+    def start(self, total_generations, total_steps, match_games, rows=(), setup_steps=0, steps_per_generation=DEFAULT_STEPS_PER_GENERATION):
         """total_generations / total_steps are None when training runs until it is stopped; the
         progress bar then shows how far through the current generation we are."""
 

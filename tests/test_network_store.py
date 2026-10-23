@@ -3,15 +3,15 @@
 import numpy as np
 
 from tests.helpers import TemporaryModels
-from tzaar import model_store
-from tzaar.encoding import NUM_FEATURES
-from tzaar.network import Network
+from tzaar.nets import model_store
+from tzaar.rules.encoding import NUM_FEATURES
+from tzaar.nets.network import Network
 
 class NetworkStoreTests(TemporaryModels):
     def test_saved_net_scores_positions_the_same_after_loading(self):
         network = Network(hidden=8)
-        model_store.save_net(network)
-        loaded = model_store.load_net()
+        model_store.save_net(network, model_store.model_path())
+        loaded = model_store.load_net(model_store.model_path())
         positions = np.random.default_rng(0).random((3, NUM_FEATURES)).astype(np.float32)
         np.testing.assert_allclose(network.predict(positions), loaded.predict(positions), rtol=1e-5)
 
@@ -19,7 +19,7 @@ class NetworkStoreTests(TemporaryModels):
         network = Network(hidden=8)
         model_store.model_dir().mkdir()
         np.savez(model_store.model_path(), W1=network.W1[:-5], b1=network.b1, W2=network.W2, b2=network.b2)
-        loaded = model_store.load_net()
+        loaded = model_store.load_net(model_store.model_path())
         self.assertEqual(loaded.W1.shape[0], NUM_FEATURES)
         self.assertFalse(loaded.W1[-5:].any())
 

@@ -1,8 +1,11 @@
 """Players are functions: state -> the move to play."""
+import functools
+
 import numpy as np
 
-from .encoding import encode_batch
-from .rng import random_generator
+from tzaar.rules.encoding import encode_batch
+from tzaar.rules.game import NUM_KINDS
+from tzaar.rules.rng import random_generator
 
 def random_player(state):
     moves = state.legal_moves()
@@ -32,7 +35,7 @@ def _positions_after(state, moves):
 
 def _lacks_a_kind(owner, kind, side):
     """For each position: does `side` have no stacks left of some kind?"""
-    has_kind = np.stack([((owner == side) & (kind == piece_kind)).any(axis=1) for piece_kind in range(3)])
+    has_kind = np.stack([((owner == side) & (kind == piece_kind)).any(axis=1) for piece_kind in range(NUM_KINDS)])
 
     return ~has_kind.all(axis=0)
 
@@ -49,16 +52,18 @@ def score_moves(network, state, moves):
 
     return np.where(wins, 2.0, np.where(losses, -2.0, scores))
 
-def make_net_player(network, epsilon=0.0):
+def pick_move(network, epsilon, state):
     """Try every legal move, ask the net how good the result is, pick the best.
     `epsilon` is the chance of playing a random move instead (exploration)."""
 
-    def play(state):
-        moves = state.legal_moves()
+    moves = state.legal_moves()
 
-        if random_generator.random() < epsilon:
-            return moves[random_generator.integers(len(moves))]
+    if random_generator.random() < epsilon:
+        return moves[random_generator.integers(len(moves))]
 
-        return moves[int(np.argmax(score_moves(network, state, moves)))]
+    return moves[int(np.argmax(score_moves(network, state, moves)))]
 
-    return play
+def make_net_player(network, epsilon=0.0):
+    """A player (a function from a state to a move) that plays by the net."""
+
+    return functools.partial(pick_move, network, epsilon)
