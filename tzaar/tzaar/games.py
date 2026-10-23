@@ -8,8 +8,9 @@ from .game import new_game
 from .rng import rng
 
 # Playing games is most of the time spent in training, and games are independent of each other, so they are played in
-# parallel. 12 of a 16-thread machine leaves room for the dashboard and anything else running at the same time.
-WORKERS = 12                  # processes that play games at the same time
+# parallel. 6 of a 16-thread machine, so that two runs can train side by side (12 if only one is running) and
+# there is still room for the dashboard and anything else running at the same time.
+WORKERS = 6                   # processes that play games at the same time
 
 _job = None                   # the work for the current batch of games; set before the workers are forked
 
