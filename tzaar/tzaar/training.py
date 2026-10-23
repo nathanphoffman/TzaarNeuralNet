@@ -21,15 +21,15 @@ STEPS_PER_GENERATION = 3      # self-play, training, testing
 RANDOM_GAMES = 1500
 START_GAMES = 100             # games per self-play batch and per test match in generation 0...
 GAMES_PER_GENERATION = 20     # ...growing by this many games for each generation after
-MAX_SELF_PLAY_GAMES = 800
+MAX_SELF_PLAY_GAMES = 1000
 MAX_MATCH_GAMES = 600
 WARM_START = True             # new nets start as a copy of the best net instead of from scratch
-WARM_START_EPOCHS = 10
+WARM_START_EPOCHS = 2
 WARM_START_LEARNING_RATE = 0.02
 OPPONENTS_BACK = 3            # a new net is rated against this many of the latest accepted nets
 SELF_PLAY_EPSILON = 0.2       # share of random moves in self-play, for variety
 OLDER_NET_WEIGHT = 0.5        # in self-play, each net one step older is this much less likely to be the opponent
-BATCHES_TO_KEEP = 5           # how many recent batches of data to train on
+BATCHES_TO_KEEP = 8           # how many recent batches of data to train on
 
 # A new net is accepted only if all of these hold:
 MIN_SCORE_VS_BEST = 0.52      # 1. it wins at least this share of games against the best net
@@ -159,8 +159,10 @@ def apply_donors(challenger, donors):
     challenger.W1[:SIGNALS_START, PROVEN_HIDDEN:] = average("W1", slice(None, SIGNALS_START), slice(PROVEN_HIDDEN, None))
     challenger.b1[PROVEN_HIDDEN:] = np.mean([net.b1[PROVEN_HIDDEN:] for net in nets], axis=0)
     challenger.W2[PROVEN_HIDDEN:] = average("W2", slice(PROVEN_HIDDEN, None))
-    for part in ("V", "c", "U"):
-        setattr(challenger, part, np.mean([getattr(net, part) for net in nets], axis=0))
+    with_layer = [net for net in nets if net.V is not None]         # donors from before the second layer have none
+    if with_layer:
+        for part in ("V", "c", "U"):
+            setattr(challenger, part, np.mean([getattr(net, part) for net in with_layer], axis=0))
 
 
 def run_self_play_generations(generations, history, rated_nets, near_misses, batches, donors=()):
@@ -269,10 +271,7 @@ def train_model(generations=None, fresh=False):
             generation, best, rating = rated_nets[-1]
             rated_nets[-1] = (generation, best.deepened(), rating)
             print(f"Added a second hidden layer of {HIDDEN2} neurons to the best net (gen {generation})")
-        kept = [(g, net.widened(), score) for g, net, score in donors if net.V is not None]
-        if len(kept) < len(donors):
-            print(f"Dropped {len(donors) - len(kept)} saved donors that were made before the second layer existed")
-        donors = kept
+        donors = [(g, net.widened(), score) for g, net, score in donors]
         last = history[-1]["generation"]
         print(f"Resuming after generation {last}. Best net so far: generation {rated_nets[-1][0]}, "
               f"rating {rated_nets[-1][2]:.0f}; {len(near_misses)} near-miss nets saved")

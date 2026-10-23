@@ -6,6 +6,7 @@ from .rng import rng
 
 
 HIDDEN = 256       # neurons in the hidden layer for new nets; older, narrower nets are widened to this (see widened)
+SECOND_LAYER_RATE = 0.1   # the second layer learns this much slower than the rest, so it can't unsettle a tuned net
 HIDDEN2 = 64       # neurons in the second hidden layer; older nets without one get it added (see deepened)
 
 
@@ -83,7 +84,8 @@ class Net:
                     d_hidden = d_hidden + d_hidden2 @ self.V.T
                 d_hidden = d_hidden * (1 - self.hidden ** 2)
                 if self.V is not None:                  # (the gradients above all used the weights from before this step)
-                    self.U -= learning_rate * self.hidden2.T @ d_out
-                    self.V -= learning_rate * self.hidden.T @ d_hidden2; self.c -= learning_rate * d_hidden2.sum(0)
+                    rate = learning_rate * SECOND_LAYER_RATE
+                    self.U -= rate * self.hidden2.T @ d_out
+                    self.V -= rate * self.hidden.T @ d_hidden2; self.c -= rate * d_hidden2.sum(0)
                 self.W2 -= learning_rate * self.hidden.T @ d_out; self.b2 -= learning_rate * d_out.sum(0)
                 self.W1 -= learning_rate * xb.T @ d_hidden;       self.b1 -= learning_rate * d_hidden.sum(0)
