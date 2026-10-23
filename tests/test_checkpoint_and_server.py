@@ -3,7 +3,7 @@
 from tests.helpers import TemporaryModels, save_two_nets
 from tzaar.nets import model_store
 from tzaar.learning.checkpoint import GENERATION_KEY, NETS_KEY, clear_checkpoint, load_checkpoint
-from tzaar.serving.server import NetPlayers, available_nets
+from web.server import NetPlayers, available_nets
 
 class CheckpointTests(TemporaryModels):
 

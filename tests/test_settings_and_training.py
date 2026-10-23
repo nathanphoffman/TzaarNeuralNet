@@ -12,13 +12,9 @@ class ConfigTests(TemporaryModels):
         self.assertEqual(load_config("first"), {})
 
     def test_config_changes_a_training_setting(self):
-        original = settings.MIN_SCORE_VS_BEST
-
-        try:
-            apply_config({"MIN_SCORE_VS_BEST": 0.6})
-            self.assertEqual(settings.MIN_SCORE_VS_BEST, 0.6)
-        finally:
-            settings.MIN_SCORE_VS_BEST = original
+        self.addCleanup(setattr, settings, "MIN_SCORE_VS_BEST", settings.MIN_SCORE_VS_BEST)
+        apply_config({"MIN_SCORE_VS_BEST": 0.6})
+        self.assertEqual(settings.MIN_SCORE_VS_BEST, 0.6)
 
     def test_unknown_setting_is_an_error(self):
         with self.assertRaises(ValueError):

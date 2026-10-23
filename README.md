@@ -85,7 +85,7 @@ tzaar/
   learning/            training.py (the generation loop), generation.py (one generation's steps), policy.py,
                        settings.py (all the training settings), checkpoint.py + checkpoint_paths.py
   runs/                runner.py (one process per model), config.py (per-model settings), progress.py
-  serving/             server.py (play), dashboard.py (training), web_response.py, pages/ (the two web pages)
+web/                   server.py (play), dashboard.py (training), web_response.py, pages/ (the two web pages)
 tests/                 unit tests
 docs/                  plan.md, UNPROVEN_CHANGES.md
 models/<name>/         one folder per model: model.npz, checkpoint/, config.json

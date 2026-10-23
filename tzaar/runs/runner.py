@@ -26,7 +26,7 @@ def run_model(name, generations, fresh):
     except KeyboardInterrupt:
         print("Stopped. Everything up to the last finished generation is saved; run again to continue.")
 
-        raise SystemExit(0)
+        return
 
     print("Done. The best net is saved in", model_dir() / "model.npz")
 
@@ -57,7 +57,7 @@ def wait_for(children):
         thread.join()
 
 def run_models(names, generations, fresh):
-    """Start a process per model and wait until all of them have finished (or Ctrl+C stopped them)."""
+    """Start a process per model and wait until all of them have finished. Returns False if Ctrl+C stopped them."""
 
     children = [start_child(name, generations, fresh) for name in names]
 
@@ -66,4 +66,6 @@ def run_models(names, generations, fresh):
     except KeyboardInterrupt:       # Ctrl+C also reaches the children (same terminal); let them save and exit
         wait_for(children)
 
-        raise
+        return False
+
+    return True

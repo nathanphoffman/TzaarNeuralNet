@@ -17,7 +17,7 @@ from tzaar.learning.checkpoint_paths import history_path, net_path
 from tzaar.rules.game import State, new_game
 from tzaar.nets.model_store import list_models, load_net
 from tzaar.nets.players import make_net_player
-from tzaar.serving.web_response import HTML_TYPE, HTTP_BAD_REQUEST, send, send_json
+from web.web_response import HTML_TYPE, HTTP_BAD_REQUEST, send, send_json
 
 INDEX_HTML = Path(__file__).resolve().parent / "pages" / "index.html"
 PORT = 8001
