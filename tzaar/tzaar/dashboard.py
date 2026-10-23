@@ -2,6 +2,7 @@
 
 Each model trains in its own process and writes its progress to models/<name>/progress.json
 (see progress.py); this reads those files, so it works from any process."""
+
 import json
 import os
 import threading
@@ -10,76 +11,76 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from .checkpoint import history_path
+from .checkpoint import HISTORY_KEY, history_path
 from .model_store import list_models, model_dir
+from .web_response import HTML_TYPE, send, send_json
 
 DASHBOARD_HTML = Path(__file__).resolve().parent.parent / "web" / "dashboard.html"
 PORT = 8002
 
+def _alive(process_id):
+    """Signal 0 only checks that the process exists. Training processes are ours, so no other error can happen."""
 
-def _alive(pid):
     try:
-        os.kill(pid, 0)
+        os.kill(process_id, 0)
     except ProcessLookupError:
         return False
-    except PermissionError:
-        pass
-    return True
 
+    return True
 
 def model_progress(name):
     """The latest progress of a model's training run. If no run has written one (or it was stopped), the
     saved history is shown instead."""
-    try:
-        snapshot = json.loads((model_dir(name) / "progress.json").read_text())
-    except (OSError, ValueError):
-        snapshot = None
+
+    progress_path = model_dir(name) / "progress.json"
+    snapshot = json.loads(progress_path.read_text()) if progress_path.exists() else None
+
     if snapshot and snapshot["running"]:
         if _alive(snapshot["pid"]):
             snapshot["elapsed"] += time.time() - snapshot["written_at"]     # the file is only written between steps
+
             return snapshot
+
         snapshot.update(running=False, status="Stopped", summary="Training is not running. Run train.py to continue.")
+
         return snapshot
+
     if snapshot:
         return snapshot
-    try:
-        rows = json.loads(history_path(name).read_text())["history"]
-    except (OSError, ValueError, KeyError):
-        rows = []
+
+    rows = json.loads(history_path(name).read_text())[HISTORY_KEY] if history_path(name).exists() else []
+
     return {"status": "Not running", "running": False, "summary": "Training is not running.", "elapsed": 0,
             "fraction": 1.0, "total_generations": None, "match_games": None, "generations": rows}
 
-
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
-        url = urlparse(self.path)
-        if url.path == "/api/models":
-            self._send("application/json", json.dumps(list_models()).encode())
-        elif url.path == "/api/progress":
-            name = parse_qs(url.query).get("model", [""])[0]
-            if name not in list_models():
-                return self._send("application/json", b'{"error": "unknown model"}', 404)
-            self._send("application/json", json.dumps(model_progress(name)).encode())
-        else:
-            self._send("text/html", DASHBOARD_HTML.read_bytes())
+        parsed_url = urlparse(self.path)
 
-    def _send(self, content_type, body, status=200):
-        self.send_response(status)
-        self.send_header("Content-Type", content_type)
-        self.send_header("Cache-Control", "no-store")
-        self.end_headers()
-        self.wfile.write(body)
+        if parsed_url.path == "/api/models":
+            send_json(self, list_models(), no_store=True)
+        elif parsed_url.path == "/api/progress":
+            name = parse_qs(parsed_url.query).get("model", [""])[0]
+
+            if name not in list_models():
+                return send_json(self, {"error": "unknown model"}, status=404, no_store=True)
+
+            send_json(self, model_progress(name), no_store=True)
+        else:
+            send(self, HTML_TYPE, DASHBOARD_HTML.read_bytes(), no_store=True)
 
     def log_message(self, *args):
         pass        # the page polls every second or so; don't flood the training output
 
-
 def start_dashboard():
     """Serve the dashboard from a background thread so training can keep running."""
+
     try:
         server = ThreadingHTTPServer(("", PORT), Handler)
     except OSError:
         print(f"Dashboard not started: port {PORT} is already in use.")
+
         return
+
     threading.Thread(target=server.serve_forever, daemon=True).start()
     print(f"Training dashboard: http://localhost:{PORT}")

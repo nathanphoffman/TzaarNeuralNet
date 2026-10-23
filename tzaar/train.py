@@ -5,6 +5,7 @@ the ones you name: uv run train.py --models evolution-1. Keeps running generatio
 Ctrl+C. Progress is saved after every generation, so running it again carries on from the last finished one.
 Also starts a live dashboard at http://localhost:8002 (skip it with --no-dashboard).
 """
+
 import argparse
 import threading
 
@@ -17,38 +18,48 @@ if __name__ == "__main__":
     parser.add_argument("--models", nargs="+", help="which models to train (default: all of them)")
     parser.add_argument("--generations", type=int, default=None,
                         help="stop after this many more generations (default: keep going until Ctrl+C)")
+
     parser.add_argument("--fresh", action="store_true",
                         help="throw away saved progress and start over (needs --models, so no model is wiped by accident)")
+
     parser.add_argument("--no-dashboard", action="store_true", help="don't start the live dashboard")
     parser.add_argument("--child", help=argparse.SUPPRESS)       # used internally: train this one model in this process
     args = parser.parse_args()
 
     if args.child:
         run_model(args.child, args.generations, args.fresh)
+
         raise SystemExit(0)
 
     available = list_models()
     names = args.models or available
     unknown = [name for name in names if name not in available]
+
     if unknown:
         parser.error(f"unknown model(s) {unknown}; models are folders in models/: {available}")
+
     if not names:
         parser.error("no models yet: create a folder like models/evolution-1 (it can start empty) and run again")
+
     if args.fresh and not args.models:
         parser.error("--fresh deletes saved progress; say which models with --models")
 
     if not args.no_dashboard:
         start_dashboard()
+
     print("Training:", ", ".join(names))
+
     try:
         run_models(names, args.generations, args.fresh)
     except KeyboardInterrupt:
         print("\nStopped. Everything up to the last finished generation is saved; run again to continue.")
+
         raise SystemExit(0)
 
     if not args.no_dashboard:
         print("The dashboard stays up so you can look at the results. Press Ctrl+C to quit.")
+
         try:
             threading.Event().wait()
         except KeyboardInterrupt:
-            pass
+            print("Dashboard closed.")

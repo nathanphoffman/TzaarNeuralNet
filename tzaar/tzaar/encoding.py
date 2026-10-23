@@ -10,6 +10,7 @@ Inputs, in order (797 in all):
   793-794  captures available: how many captures the opponent / I could make if it were their / my move (share of 20)
   795-796  stuck: 1 if the opponent / I would have no capture at all (a side with no capture on its turn loses)
 """
+
 import numpy as np
 
 from .board import NUM_POINTS, RAY_TABLE
@@ -20,18 +21,19 @@ CAPTURES_SCALE = 20
 SIGNALS_START = NUM_POINTS * 6 * 2 + 1       # inputs from here on (pieces left, danger, threat) came after the first nets
 START_COUNTS = np.tile(np.array(PIECES_PER_KIND, dtype=np.float32), 2)       # for [my 3 kinds, their 3 kinds]
 
-
 def piece_counts(owner, kind, actor):
     """(M, 6): stacks left of [my Tzaar, Tzaara, Tott, their Tzaar, Tzaara, Tott]. A stack counts as its top piece."""
-    return np.stack([((owner == side) & (kind == k)).sum(axis=1)
-                     for side in (actor, -actor) for k in range(3)], axis=1)
 
+    # One row per position: how many pieces of each kind each side has (this side's three kinds, then the other's).
+    return np.stack([((owner == side) & (kind == piece_kind)).sum(axis=1)
+                     for side in (actor, -actor) for piece_kind in range(3)], axis=1)
 
 def captures(owner, height, attacker):
     """Returns (victims, moves): victims is (M, 60), 1 where one of the other side's stacks could be captured if
     `attacker` were to move now, and moves is (M,), how many captures `attacker` could make.
     A stack can be captured by an enemy stack at least as tall that reaches it along a straight line
     with nothing in between (the first piece on the line is the one it can hit)."""
+
     count = owner.shape[0]
     occupied = np.concatenate([owner != 0, np.zeros((count, 1), dtype=bool)], axis=1)    # extra column = padding
     owner_ext = np.concatenate([owner, np.zeros((count, 1), dtype=owner.dtype)], axis=1)
@@ -50,17 +52,18 @@ def captures(owner, height, attacker):
     threat = np.zeros((count, NUM_POINTS + 1), dtype=np.float32)
     threat[position[hit_position], target[hit_position, hit_direction]] = 1
     moves = np.bincount(position, weights=can_hit.sum(axis=1), minlength=count)
-    return threat[:, :NUM_POINTS], moves
 
+    return threat[:, :NUM_POINTS], moves
 
 def threatened_stacks(owner, height, actor):
     """(M, 60): 1 where one of actor's stacks could be captured if the opponent were to move now."""
-    return captures(owner, height, -actor)[0]
 
+    return captures(owner, height, -actor)[0]
 
 def encode_batch(owner, kind, height, actor, actor_moves_again):
     """Positions seen from `actor`'s side.
     owner/kind/height: arrays of shape (M, 60). actor_moves_again: array of M bools."""
+
     count = owner.shape[0]
     rows, points = np.nonzero(owner != 0)
     channel = (kind + 3 * (owner != actor))[rows, points]       # 0-2 mine, 3-5 theirs
@@ -75,13 +78,14 @@ def encode_batch(owner, kind, height, actor, actor_moves_again):
     threat, their_captures = captures(owner, height, -actor)
     _, my_captures = captures(owner, height, actor)
     available = np.stack([their_captures, my_captures], axis=1)
+
     return np.concatenate([presence.reshape(count, -1), heights.reshape(count, -1), flag,
                            (counts / START_COUNTS).astype(np.float32), (counts == 1).astype(np.float32),
                            threat, np.minimum(available / CAPTURES_SCALE, 1).astype(np.float32),
                            (available == 0).astype(np.float32)], axis=1)
 
-
 def encode_state(state, actor):
     """One position, seen from `actor`'s side (usually the player who just moved)."""
+
     return encode_batch(np.array([state.owner]), np.array([state.kind]), np.array([state.height]),
                         actor, [state.to_move == actor])[0]
