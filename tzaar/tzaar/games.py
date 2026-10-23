@@ -1,9 +1,33 @@
 """Playing games, recording them as training data, and measuring strength."""
+import multiprocessing
+
 import numpy as np
 
 from .encoding import encode_state
 from .game import new_game
 from .rng import rng
+
+WORKERS = 12                  # processes that play games at the same time
+
+_job = None                   # the work for the current batch of games; set before the workers are forked
+
+
+def _run_chunk(args):
+    """Runs in a worker: play one slice of the games with its own random stream."""
+    game_numbers, seed = args
+    rng.bit_generator.state = np.random.default_rng(seed).bit_generator.state
+    return _job(game_numbers)
+
+
+def _in_parallel(job, num_games):
+    """Split games 0..num_games-1 over the workers and return each worker's result from job(game_numbers).
+    The workers are forked, so they inherit the players (which are functions and can't be sent between processes)."""
+    global _job
+    _job = job
+    chunks = [chunk for chunk in np.array_split(np.arange(num_games), WORKERS) if len(chunk)]
+    seeds = rng.integers(2 ** 32, size=len(chunks))
+    with multiprocessing.get_context("fork").Pool(len(chunks)) as pool:
+        return pool.map(_run_chunk, list(zip(chunks, seeds)))
 
 
 def play_game(white_player, black_player, record=True):
@@ -24,26 +48,36 @@ def play_game(white_player, black_player, record=True):
 def generate_training_data(player, opponents, num_games, weights=None):
     """Play many games and return (X, y) training arrays. Each game's opponent is drawn at
     random from `opponents`, with probabilities `weights` (equal if None). Alternates who is White."""
-    X, y = [], []
-    for i, choice in enumerate(rng.choice(len(opponents), size=num_games, p=weights)):
-        opponent = opponents[choice]
-        white, black = (player, opponent) if i % 2 == 0 else (opponent, player)
-        positions, labels, _ = play_game(white, black)
-        X += positions
-        y += labels
-    return np.array(X), np.array(y, dtype=np.float32)
+    choices = rng.choice(len(opponents), size=num_games, p=weights)
+
+    def play_some(game_numbers):
+        X, y = [], []
+        for i in game_numbers:
+            opponent = opponents[choices[i]]
+            white, black = (player, opponent) if i % 2 == 0 else (opponent, player)
+            positions, labels, _ = play_game(white, black)
+            X += positions
+            y += labels
+        return X, y
+
+    parts = _in_parallel(play_some, num_games)
+    return np.array([x for X, _ in parts for x in X]), np.array([v for _, y in parts for v in y], dtype=np.float32)
 
 
 def play_match(player_a, player_b, num_games):
     """player_a's (wins, losses) over num_games, alternating who is White."""
-    wins = 0
-    for i in range(num_games):
-        if i % 2 == 0:
-            _, _, winner = play_game(player_a, player_b, record=False)
-            wins += winner == 1
-        else:
-            _, _, winner = play_game(player_b, player_a, record=False)
-            wins += winner == -1
+    def play_some(game_numbers):
+        wins = 0
+        for i in game_numbers:
+            if i % 2 == 0:
+                _, _, winner = play_game(player_a, player_b, record=False)
+                wins += winner == 1
+            else:
+                _, _, winner = play_game(player_b, player_a, record=False)
+                wins += winner == -1
+        return int(wins)
+
+    wins = sum(_in_parallel(play_some, num_games))
     return wins, num_games - wins
 
 
