@@ -8,6 +8,9 @@
   .legend{color:#555;font-size:14px;margin-top:8px}
 </style>
 <h2>Tzaar vs the Net</h2>
+<label>Play against
+  <select id="net"></select>
+</label>
 <div class="legend" id="net-info"></div>
 <label>Play as
   <select id="side"><option value="1">White (moves first)</option><option value="-1">Black</option></select>
@@ -25,10 +28,30 @@ const board = document.getElementById('board'), statusEl = document.getElementBy
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const xy = ([q, r]) => [SIZE * Math.sqrt(3) * (q + r / 2), SIZE * 1.5 * r];
 
-fetch('/api/info').then(r => r.json()).then(info => {
-  if (info) document.getElementById('net-info').textContent =
-    `You are playing generation ${info.generation} (rating ${info.rating} Elo; a random player is 0)`;
-}).catch(() => {});
+const netSelect = document.getElementById('net');
+// Options look like "evolution-1 / gen 432 (953 Elo)", newest first; the value is "model|generation".
+fetch('/api/info').then(r => r.json()).then(models => {
+  models.forEach(m => {
+    const group = document.createElement('optgroup');
+    group.label = m.name;
+    m.nets.slice().reverse().forEach((n, i) => {
+      const option = new Option(`gen ${n.generation} (${n.rating} Elo)${i === 0 ? ' - best' : ''}`, `${m.name}|${n.generation}`);
+      option.dataset.rating = n.rating;
+      group.appendChild(option);
+    });
+    netSelect.appendChild(group);
+  });
+  netSelect.onchange = newGame;
+  newGame();
+});
+function chosenNet() {
+  const [model, generation] = netSelect.value.split('|');
+  return {model, generation: Number(generation)};
+}
+function netName() {
+  const net = chosenNet();
+  return `${net.model} gen ${net.generation}`;
+}
 
 async function api(path, body) {
   const r = await fetch(path, {method: 'POST', body: JSON.stringify(body)});
@@ -41,6 +64,9 @@ function apply(resp) {
 }
 async function newGame() {
   human = Number(document.getElementById('side').value); lastMove = null;
+  const rating = netSelect.selectedOptions[0].dataset.rating;
+  document.getElementById('net-info').textContent =
+    `You are playing ${netName()} (rating ${rating} Elo; a random player is 0)`;
   apply(await api('/api/new', {}));
   await aiTurns();
 }
@@ -54,7 +80,7 @@ async function aiTurns() {
   busy = true; render();
   while (game.result === 0 && game.to_move !== human) {
     await sleep(600);
-    apply(await api('/api/ai', {state: game}));
+    apply(await api('/api/ai', {state: game, net: chosenNet()}));
   }
   busy = false; render();
 }
@@ -112,5 +138,4 @@ function render() {
                                              : 'Your turn: capture an enemy piece')
     : 'Second action: capture, stack, or pass';
 }
-newGame();
 </script>
