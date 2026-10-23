@@ -11,6 +11,14 @@ uv run train.py    # train every model in models/ side by side
 uv run serve.py    # open http://localhost:8001, pick a model and generation, and play
 ```
 
+## Tests
+
+```
+uv run python -m unittest discover tests
+```
+
+They use a temporary models folder, so they never touch `models/`.
+
 ## Models
 
 Each model is a folder in `models/` (`evolution-1`, `evolution-2`) with its own `model.npz`, `checkpoint/` and `config.json`. To add one, make a new folder (e.g. `models/evolution-3`) and run `uv run train.py`. Every model trains in its own process and knows nothing about the others.
@@ -83,6 +91,8 @@ tzaar/
   progress.py          training progress, shared with the dashboard
   dashboard.py         the training dashboard server
   server.py            the game web server
+  web_response.py      sending a response, shared by the two web servers
+tests/                 unit tests
 web/index.html         the game board page
 web/dashboard.html     the training dashboard page
 models/<name>/         one folder per model: model.npz, checkpoint/, config.json
