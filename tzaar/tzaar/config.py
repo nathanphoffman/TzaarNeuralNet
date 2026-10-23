@@ -20,6 +20,8 @@ def load_config(name):
     return json.loads(path.read_text()) if path.exists() else {}
 
 def apply_config(config):
+    """Apply one model's settings in this process. An unknown name is an error, so a typo can't silently do nothing."""
+
     for setting, value in config.items():
         if setting == "seed":
             random_generator.bit_generator.state = np.random.default_rng(value).bit_generator.state

@@ -27,7 +27,7 @@ GAMES_PER_GENERATION = 20     # ...growing by this many games for each generatio
 # and 937 came with more data and fewer epochs). A position is about 3.2 KB, so a 5000-game batch is roughly
 # 670 MB; the limit is memory (12 GB machine), which is why BATCHES_TO_KEEP is small. Lower this if it runs out.
 MAX_SELF_PLAY_GAMES = 5000
-MAX_MATCH_GAMES = 600         # games per test match; the score is accurate to about +-2 points at this size
+MAX_MATCH_GAMES = 600         # games per test match: enough that the score is accurate to about +-2 points
 WARM_START = True             # new nets start as a copy of the best net instead of from scratch
 
 # How many passes (epochs) a new net makes over its training data. Each position is labeled with who won the whole
@@ -120,8 +120,8 @@ def start_new_run():
     network = Network()
     network.train(inputs, targets)
 
-    # the one place the random player sets a rating: it anchors the scale (random = 0).
-    # every later rating is measured relative to this one, so use the biggest match here
+    # The random player anchors the rating scale (random = 0) and every later rating is measured from this one,
+    # so play the biggest match here to keep the anchor accurate.
     vs_random = win_rate(make_net_player(network), random_player, MAX_MATCH_GAMES)
     rating = elo_gap(vs_random)
     print(f"   gen 0: rating {rating:.0f} | vs random {vs_random:.2f}")

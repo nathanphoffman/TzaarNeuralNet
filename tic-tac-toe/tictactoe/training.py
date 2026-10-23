@@ -12,7 +12,6 @@ SELF_PLAY_EPSILON = 0.2       # share of random moves in self-play, for variety
 BATCHES_TO_KEEP = 3           # how many recent batches of data to train on
 MIN_SCORE_VS_BEST = 0.55      # challenger must beat the current best by this much
 
-
 def train_first_net():
     """Generation 0: learn from random-vs-random games."""
     print(f"STEP 1: {RANDOM_GAMES:,} random-vs-random games")
@@ -23,12 +22,13 @@ def train_first_net():
     net = Net()
     net.train(X, y)
     print("   vs random (win/draw/loss):", play_match(make_net_player(net), random_player))
-    return net, X, y
 
+    return net, X, y
 
 def run_self_play_generations(best, first_X, first_y):
     """Each generation: best net plays itself, a fresh net trains on the data,
     and it replaces `best` only if it beats it (and isn't worse vs random)."""
+
     print("STEP 4: self-play generations")
     best_vs_random = match_score(*play_match(make_net_player(best), random_player))
     data_X, data_y = [first_X], [first_y]    # replay buffer: keep older data too
@@ -43,16 +43,19 @@ def run_self_play_generations(best, first_X, first_y):
         challenger.train(np.concatenate(data_X), np.concatenate(data_y))
         score_vs_best = match_score(*play_match(make_net_player(challenger),
                                                 make_net_player(best, epsilon=0.05)))
+
         # random is a fixed yardstick: the challenger must not get worse against it
         score_vs_random = match_score(*play_match(make_net_player(challenger), random_player))
         accepted = (score_vs_best >= MIN_SCORE_VS_BEST
                     and score_vs_random >= best_vs_random - 0.01)
+
         print(f"   gen {generation}: vs best {score_vs_best:.2f} | vs random {score_vs_random:.2f}  "
               f"-> {'ACCEPTED' if accepted else 'rejected'}")
+
         if accepted:
             best, best_vs_random = challenger, score_vs_random
-    return best
 
+    return best
 
 def train_model():
     """Run the whole pipeline and return the best net."""
@@ -60,6 +63,8 @@ def train_model():
     best = run_self_play_generations(best, first_X, first_y)
     print("FINAL: best net vs random (win/draw/loss):",
           play_match(make_net_player(best), random_player))
+
     print("       random alone vs random, for reference:",
           play_match(random_player, random_player))
+
     return best
