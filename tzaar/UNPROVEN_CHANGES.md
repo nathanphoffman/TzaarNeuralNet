@@ -31,7 +31,7 @@ to the README; when it is backed out, delete its section.
 ## 2. More training data and fewer epochs (`training.py`)
 
 - `BATCHES_TO_KEEP`: 5 -> 8. Each new net trains on the games from the last 8 generations (it was 3, then 5).
-- `WARM_START_EPOCHS`: 10 -> 6 -> 2. Each new net makes fewer passes over that data, so it drifts less from the
+- `WARM_START_EPOCHS`: 10 -> 6 -> 2 -> 1. Each new net makes fewer passes over that data, so it drifts less from the
   best net it started from. Each position is labeled with the result of the whole game, which is noisy, so many
   passes mostly fit the noise.
 - `MAX_SELF_PLAY_GAMES`: 800 -> 1000. The best net plays up to 25% more self-play games per generation, so every
@@ -39,6 +39,22 @@ to the README; when it is backed out, delete its section.
 - These were changed together, so if the scores improve we won't know which one did it.
 - Raising the batches and the games makes each restart play more games to refill the batches. Fewer epochs
   makes the training step faster.
+
+## Idea, not built yet: reduced starting positions
+
+The idea: some self-play games start with fewer pieces (for example only 1 or 2 stacks of a kind per side), to
+force the net to learn the signals that decide a game, such as the "only one left" danger flags and the capture
+inputs. In normal games those situations are rare, so the net sees few examples of them.
+
+- Use only a small share of the self-play games, about 10 to 20%, and keep the rest normal. The net's job is to
+  play normal games, and too many odd starts would spend its capacity on positions that rarely happen.
+- Every start must give each side at least one stack of every kind, or the game is over at once.
+- Testing and ratings stay on normal starts only, so Elo keeps its meaning.
+- A cheaper alternative: take real positions from the late part of normal games and use those as the starting
+  points. They are realistic few-piece positions, and not artificial ones.
+- Where it would go: `new_game()` in `game.py` (a way to build a smaller starting setup) and
+  `generate_training_data()` in `games.py` (use it for a share of the games).
+- Wait until the current run stops improving before trying it, and change nothing else at the same time.
 
 ## How to back out
 
