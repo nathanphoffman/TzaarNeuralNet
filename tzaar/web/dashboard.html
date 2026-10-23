@@ -181,7 +181,7 @@
     <h2>Numbers</h2>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Generation</th><th>Rating</th><th>vs random</th><th>vs best</th><th>Games</th><th>Result</th></tr></thead>
+        <thead><tr><th>Generation</th><th>Rating</th><th>vs random</th><th>vs best</th><th>Games</th><th>Finished</th><th>Result</th></tr></thead>
         <tbody id="table-body"></tbody>
       </table>
     </div>
@@ -401,7 +401,8 @@ function renderTable() {
     const tr = html('tr');
     tr.append(html('td', {}, r.generation === 0 ? '0 (starting net)' : String(r.generation)),
               html('td', {}, String(Math.round(r.rating))), html('td', {}, pct(r.vs_random)), html('td', {}, pct(r.vs_best)),
-              html('td', {}, r.generation === 0 || r.games == null ? '–' : String(r.games)));
+              html('td', {}, r.generation === 0 || r.games == null ? '–' : String(r.games)),
+              html('td', {}, r.time ? r.time.replace('T', ' ') : '–'));
     const result = html('td');
     if (r.generation === 0) result.textContent = 'Start';
     else {
@@ -412,7 +413,7 @@ function renderTable() {
     tr.append(result); body.append(tr);
   }
   if (!data.generations.length) {
-    const tr = html('tr'); const td = html('td', {colSpan: 6}, 'Waiting for the first results...');
+    const tr = html('tr'); const td = html('td', {colSpan: 7}, 'Waiting for the first results...');
     tr.append(td); body.append(tr);
   }
 }
