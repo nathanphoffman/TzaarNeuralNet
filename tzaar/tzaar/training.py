@@ -21,15 +21,26 @@ STEPS_PER_GENERATION = 3      # self-play, training, testing
 RANDOM_GAMES = 1500
 START_GAMES = 100             # games per self-play batch and per test match in generation 0...
 GAMES_PER_GENERATION = 20     # ...growing by this many games for each generation after
-MAX_SELF_PLAY_GAMES = 1000
-MAX_MATCH_GAMES = 600
+# New training games the best net plays each generation. More fresh games gave better nets (the jumps at 859, 903
+# and 937 came with more data and fewer epochs). A position is about 3.2 KB, so a 5000-game batch is roughly
+# 670 MB; the limit is memory (12 GB machine), which is why BATCHES_TO_KEEP is small. Lower this if it runs out.
+MAX_SELF_PLAY_GAMES = 5000
+MAX_MATCH_GAMES = 600         # games per test match; the score is accurate to about +-2 points at this size
 WARM_START = True             # new nets start as a copy of the best net instead of from scratch
-WARM_START_EPOCHS = 1
+# How many passes (epochs) a new net makes over its training data. Each position is labeled with who won the whole
+# game, which is a noisy signal. A weak net still has a lot to learn, so more passes help. A strong net mostly
+# fits the noise with extra passes, and it drifts away from the best net it started from (its challengers kept
+# scoring below 0.5 against the best net at 10 and 6 epochs, and jumped when this went down to 2 and then 1).
+WARM_START_EPOCHS_AT_ZERO = 6   # passes per new net when the best net is rated 0...
+WARM_START_ELO_PER_EPOCH = 100  # ...one fewer for every this many Elo, down to a minimum of 1
 WARM_START_LEARNING_RATE = 0.02
 OPPONENTS_BACK = 3            # a new net is rated against this many of the latest accepted nets
 SELF_PLAY_EPSILON = 0.2       # share of random moves in self-play, for variety
 OLDER_NET_WEIGHT = 0.5        # in self-play, each net one step older is this much less likely to be the opponent
-BATCHES_TO_KEEP = 8           # how many recent batches of data to train on
+# How many recent batches of games a new net trains on. Games played by an older best net no longer match how the
+# current one plays, and after each accepted net the challengers dipped until the old batches rolled out of the
+# window, so a short window of big fresh batches keeps the data current. (Memory is the other limit, see above.)
+BATCHES_TO_KEEP = 2
 
 # A new net is accepted only if all of these hold:
 MIN_SCORE_VS_BEST = 0.52      # 1. it wins at least this share of games against the best net
@@ -46,8 +57,8 @@ NEAR_MISS_SCORE = 0.50        # a rejected net that still won this much vs the b
 # accepted, because the new best net carries its own weights for them.
 # The donors also supply the parts of the net that were added later and so haven't been proven yet: the hidden
 # neurons beyond the first PROVEN_HIDDEN (the net used to be that narrow) and the second hidden layer.
-DONORS_TO_KEEP = 3
-PROVEN_HIDDEN = 64
+DONORS_TO_KEEP = 3            # averaging a few smooths out donors that only scored well by luck (tests are +-2 points)
+PROVEN_HIDDEN = 64            # the first neurons: well tuned, always from the best net, so a donor can't unsettle them
 
 # A net that fails narrowly gets one re-test against the best net before it is rejected, because a
 # normal test (a few hundred games) is only accurate to about +-2.5 points. The re-test result alone decides:
@@ -55,6 +66,11 @@ PROVEN_HIDDEN = 64
 RETEST_GAMES = 1600
 RETEST_MIN_SCORE = 0.48       # "borderline" 1: rating clears the bar and it won at least this much vs the best net
 RETEST_RATING_SLACK = 20      # "borderline" 2: it won enough vs the best net but its rating is short by up to this much
+
+
+def epochs_for(rating):
+    """A weak net learns a lot from each pass over the data, a strong one mostly picks up noise."""
+    return max(1, round(WARM_START_EPOCHS_AT_ZERO - rating / WARM_START_ELO_PER_EPOCH))
 
 
 def games_for(generation, cap):
@@ -149,7 +165,10 @@ def rebase_best_rating(rated_nets, games):
 
 
 def apply_donors(challenger, donors):
-    """Give the challenger the average of the donors' weights for the parts that are not from the best net."""
+    """Give the challenger the average of the donors' weights for the parts that are not from the best net.
+    Those are the parts the best net may not have learned yet (see the donor notes at the top): the weights for the
+    newest inputs, for the neurons beyond PROVEN_HIDDEN, and for the second layer. Everything else stays as the
+    best net has it, so the challenger is still a small step from the best net."""
     nets = [net for _, net, _ in donors]
 
     def average(part, rows=slice(None), columns=slice(None)):
@@ -193,7 +212,7 @@ def run_self_play_generations(generations, history, rated_nets, near_misses, bat
             challenger = best.copy()
             if donors:
                 apply_donors(challenger, donors)
-            challenger.train(X, y, epochs=WARM_START_EPOCHS, learning_rate=WARM_START_LEARNING_RATE)
+            challenger.train(X, y, epochs=epochs_for(best_rating), learning_rate=WARM_START_LEARNING_RATE)
         else:
             challenger = Net()
             challenger.train(X, y)
@@ -267,7 +286,7 @@ def train_model(generations=None, fresh=False):
         if best.W1.shape[1] < HIDDEN:
             rated_nets[-1] = (generation, best.widened(), rating)
             print(f"Widened the best net (gen {generation}) from {best.W1.shape[1]} to {HIDDEN} hidden neurons")
-        if rated_nets[-1][1].V is None:
+        if rated_nets[-1][1].V is None:             # a net saved before the second layer existed: add it (scores don't change)
             generation, best, rating = rated_nets[-1]
             rated_nets[-1] = (generation, best.deepened(), rating)
             print(f"Added a second hidden layer of {HIDDEN2} neurons to the best net (gen {generation})")

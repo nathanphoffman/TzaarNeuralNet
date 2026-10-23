@@ -8,6 +8,7 @@
   .legend{color:#555;font-size:14px;margin-top:8px}
 </style>
 <h2>Tzaar vs the Net</h2>
+<div class="legend" id="net-info"></div>
 <label>Play as
   <select id="side"><option value="1">White (moves first)</option><option value="-1">Black</option></select>
 </label>
@@ -23,6 +24,11 @@ let game, legal = [], points = [], human = 1, selected = null, lastMove = null, 
 const board = document.getElementById('board'), statusEl = document.getElementById('status');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const xy = ([q, r]) => [SIZE * Math.sqrt(3) * (q + r / 2), SIZE * 1.5 * r];
+
+fetch('/api/info').then(r => r.json()).then(info => {
+  if (info) document.getElementById('net-info').textContent =
+    `You are playing generation ${info.generation} (rating ${info.rating} Elo; a random player is 0)`;
+}).catch(() => {});
 
 async function api(path, body) {
   const r = await fetch(path, {method: 'POST', body: JSON.stringify(body)});
