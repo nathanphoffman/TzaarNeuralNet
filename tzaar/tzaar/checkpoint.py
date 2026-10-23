@@ -29,10 +29,10 @@ def _old_donor_path():
 def _donor_path(index):
     return checkpoint_dir() / f"donor_{index}.npz"
 
-def _net_path(kind, generation):
+def net_path(kind, generation, name=None):
     """kind is "net" (accepted) or "miss" (a near-miss that was rejected but kept as an opponent)."""
 
-    return model_dir() / "checkpoint" / f"{kind}_gen{generation:04d}.npz"
+    return checkpoint_dir(name) / f"{kind}_gen{generation:04d}.npz"
 
 def save_checkpoint(history, rated_nets, near_misses, donors=()):
     """history: one row per generation. rated_nets / near_misses: [(generation, net, rating)],
@@ -44,7 +44,7 @@ def save_checkpoint(history, rated_nets, near_misses, donors=()):
 
     for kind, nets in (("net", rated_nets), ("miss", near_misses)):
         for generation, network, _ in nets:
-            path = _net_path(kind, generation)
+            path = net_path(kind, generation)
 
             # always rewrite the current generation's file: a stop mid-save could have left a stale one
             if generation == current or not path.exists():
@@ -81,7 +81,7 @@ def load_checkpoint():
     saved = json.loads(history_path().read_text())
 
     def load(kind, entries):
-        return [(entry[GENERATION_KEY], load_net(_net_path(kind, entry[GENERATION_KEY])), entry[RATING_KEY])
+        return [(entry[GENERATION_KEY], load_net(net_path(kind, entry[GENERATION_KEY])), entry[RATING_KEY])
                 for entry in entries]
 
     entries = saved.get(DONORS_KEY) or ([saved["donor"]] if saved.get("donor") else [])

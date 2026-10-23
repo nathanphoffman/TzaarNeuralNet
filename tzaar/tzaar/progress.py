@@ -41,11 +41,14 @@ class Progress:
             self.setup_steps = setup_steps
             self.steps_per_generation = steps_per_generation
             self.match_games = match_games
+
             self.steps_started = 0
+
             self.status = "Starting..."
             self.generations = list(rows)    # one row per generation, generation 0 first
             self.summary = None
             self.running = True
+
             self.started_at = time.time()
             self.finished_at = None
             self._save()

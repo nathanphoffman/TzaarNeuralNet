@@ -12,9 +12,9 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
 from .board import POINTS
-from .checkpoint import GENERATION_KEY, NETS_KEY, RATING_KEY, history_path
+from .checkpoint import GENERATION_KEY, NETS_KEY, RATING_KEY, history_path, net_path
 from .game import State, new_game
-from .model_store import list_models, load_net, model_dir
+from .model_store import list_models, load_net
 from .players import make_net_player
 from .web_response import HTML_TYPE, send, send_json
 
@@ -47,12 +47,13 @@ class NetPlayers:
         self.players = {}
 
     def player_for(self, name, generation):
+        """The player for one accepted net of a model; a net that is not in the model's history is refused."""
+
         if (name, generation) not in self.players:
             if generation not in [net[GENERATION_KEY] for net in accepted_nets(name)]:
                 raise ValueError("unknown net")
 
-            path = model_dir(name) / "checkpoint" / f"net_gen{generation:04d}.npz"
-            self.players[(name, generation)] = make_net_player(load_net(path))
+            self.players[(name, generation)] = make_net_player(load_net(net_path("net", generation, name)))
 
         return self.players[(name, generation)]
 

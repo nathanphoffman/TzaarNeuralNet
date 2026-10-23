@@ -120,8 +120,8 @@ def start_new_run():
     network = Network()
     network.train(inputs, targets)
 
-    # The random player anchors the rating scale (random = 0) and every later rating is measured from this one,
-    # so play the biggest match here to keep the anchor accurate.
+    # Every later rating is measured from this one (random = 0), so a small error here would shift all of them;
+    # that is why this match is the biggest.
     vs_random = win_rate(make_net_player(network), random_player, MAX_MATCH_GAMES)
     rating = elo_gap(vs_random)
     print(f"   gen 0: rating {rating:.0f} | vs random {vs_random:.2f}")

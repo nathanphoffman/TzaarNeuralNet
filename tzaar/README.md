@@ -14,7 +14,7 @@ uv run serve.py    # open http://localhost:8001, pick a model and generation, an
 ## Tests
 
 ```
-uv run python -m unittest discover tests
+uv run python -m unittest discover -s ../tests -t ..    # or `just test` from the repo root
 ```
 
 They use a temporary models folder, so they never touch `models/`.
@@ -92,7 +92,7 @@ tzaar/
   dashboard.py         the training dashboard server
   server.py            the game web server
   web_response.py      sending a response, shared by the two web servers
-tests/                 unit tests
+../tests/              unit tests (in the repo root)
 web/index.html         the game board page
 web/dashboard.html     the training dashboard page
 models/<name>/         one folder per model: model.npz, checkpoint/, config.json

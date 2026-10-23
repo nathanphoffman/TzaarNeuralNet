@@ -11,3 +11,7 @@ train *args:
 # Play against any model or generation in your browser (opens at http://localhost:8001)
 play:
     cd tzaar && uv run serve.py
+
+# Run the tests (they use a temporary models folder, never the real one)
+test:
+    cd tzaar && uv run python -m unittest discover -s ../tests -t ..
