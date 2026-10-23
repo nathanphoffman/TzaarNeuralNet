@@ -11,7 +11,7 @@ import numpy as np
 from .checkpoint import RATING_BASIS, clear_checkpoint, load_checkpoint, save_checkpoint
 from .encoding import SIGNALS_START
 from .games import generate_training_data, match_score, play_match
-from .network import HIDDEN, Net
+from .network import HIDDEN, HIDDEN2, Net
 from .players import make_net_player, random_player
 from .progress import progress
 from .rating import elo_gap, rate_net
@@ -247,6 +247,10 @@ def train_model(generations=None, fresh=False):
         if best.W1.shape[1] < HIDDEN:
             rated_nets[-1] = (generation, best.widened(), rating)
             print(f"Widened the best net (gen {generation}) from {best.W1.shape[1]} to {HIDDEN} hidden neurons")
+        if rated_nets[-1][1].V is None:
+            generation, best, rating = rated_nets[-1]
+            rated_nets[-1] = (generation, best.deepened(), rating)
+            print(f"Added a second hidden layer of {HIDDEN2} neurons to the best net (gen {generation})")
         donors = [(g, net.widened(), score) for g, net, score in donors]
         last = history[-1]["generation"]
         print(f"Resuming after generation {last}. Best net so far: generation {rated_nets[-1][0]}, "
