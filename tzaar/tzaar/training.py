@@ -40,9 +40,11 @@ NEAR_MISS_SCORE = 0.50        # a rejected net that still won this much vs the b
 
 # The weights for the newer inputs (SIGNALS_START on) are only kept when a net is accepted, so a best net that
 # was made before those inputs existed has zeros there, and every challenger would have to learn them from
-# scratch and then lose them again when rejected. So the rejected challenger that scored best against the best
-# net is kept as the "donor": new challengers copy their weights for those inputs from it. The donor is dropped
-# when a net is accepted, because the new best net carries its own weights for them.
+# scratch and then lose them again when rejected. So each time a rejected challenger scores higher against the
+# best net than any donor so far, it becomes a "donor" (the latest few are kept). New challengers get the average
+# of the donors' weights for those inputs, which smooths out lucky scores. The donors are dropped when a net is
+# accepted, because the new best net carries its own weights for them.
+DONORS_TO_KEEP = 3
 
 # A net that fails narrowly gets one re-test against the best net before it is rejected, because a
 # normal test (a few hundred games) is only accurate to about +-2.5 points. The re-test result alone decides:
@@ -143,7 +145,7 @@ def rebase_best_rating(rated_nets, games):
     rated_nets[-1] = (generation, best, new_rating)
 
 
-def run_self_play_generations(generations, history, rated_nets, near_misses, batches, donor=None):
+def run_self_play_generations(generations, history, rated_nets, near_misses, batches, donors=()):
     """Each generation: the best net plays older nets (and itself), a new net trains on the data,
     and it replaces the best net only if it passes the acceptance checks.
     Returns (best net, its rating)."""
@@ -169,8 +171,8 @@ def run_self_play_generations(generations, history, rated_nets, near_misses, bat
         y = np.concatenate([y for _, y in batches])
         if WARM_START:
             challenger = best.copy()
-            if donor is not None:
-                challenger.W1[SIGNALS_START:] = donor[1].W1[SIGNALS_START:]
+            if donors:
+                challenger.W1[SIGNALS_START:] = np.mean([net.W1[SIGNALS_START:] for _, net, _ in donors], axis=0)
             challenger.train(X, y, epochs=WARM_START_EPOCHS, learning_rate=WARM_START_LEARNING_RATE)
         else:
             challenger = Net()
@@ -214,13 +216,13 @@ def run_self_play_generations(generations, history, rated_nets, near_misses, bat
         if accepted:
             best, best_rating = challenger, rating
             rated_nets.append((generation, challenger, rating))
-            donor = None
+            donors = []
         else:
             if near_miss:
                 near_misses.append((generation, challenger, rating))
-            if donor is None or score_vs_best > donor[2]:
-                donor = (generation, challenger, score_vs_best)
-        save_checkpoint(history, rated_nets, near_misses, donor)
+            if not donors or score_vs_best > max(score for _, _, score in donors):
+                donors = (list(donors) + [(generation, challenger, score_vs_best)])[-DONORS_TO_KEEP:]
+        save_checkpoint(history, rated_nets, near_misses, donors)
     return best, best_rating
 
 
@@ -236,9 +238,9 @@ def train_model(generations=None, fresh=False):
                        None if open_ended else 2 + STEPS_PER_GENERATION * generations,
                        MAX_MATCH_GAMES, setup_steps=2, steps_per_generation=STEPS_PER_GENERATION)
         history, rated_nets, near_misses, batches = start_new_run()
-        donor = None
+        donors = []
     else:
-        history, rated_nets, near_misses, basis, donor = checkpoint
+        history, rated_nets, near_misses, basis, donors = checkpoint
         last = history[-1]["generation"]
         print(f"Resuming after generation {last}. Best net so far: generation {rated_nets[-1][0]}, "
               f"rating {rated_nets[-1][2]:.0f}; {len(near_misses)} near-miss nets saved")
@@ -252,9 +254,9 @@ def train_model(generations=None, fresh=False):
             progress.step("Re-rating the best net (head-to-head games only)")
             rebase_best_rating(rated_nets, games_for(last + 1, MAX_MATCH_GAMES))
         batches = rebuild_batches(rated_nets, near_misses, last + 1)
-        save_checkpoint(history, rated_nets, near_misses, donor)       # records the new rating basis
+        save_checkpoint(history, rated_nets, near_misses, donors)       # records the new rating basis
 
-    best, rating = run_self_play_generations(generations, history, rated_nets, near_misses, batches, donor)
+    best, rating = run_self_play_generations(generations, history, rated_nets, near_misses, batches, donors)
     vs_random = next(r["vs_random"] for r in history if r["generation"] == rated_nets[-1][0])
     print(f"FINAL: best net rating {rating:.0f} (random player = 0), wins {vs_random:.0%} vs random")
     progress.finish(f"Best net rating: {rating:.0f} Elo. It beat a random player {vs_random:.0%} of the time.")
