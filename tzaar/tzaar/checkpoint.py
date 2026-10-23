@@ -6,6 +6,7 @@ training at any time and the next run continues from the last finished generatio
 import json
 import shutil
 
+from .encoding import NUM_FEATURES
 from .model_store import MODELS_DIR, load_net, save_net
 
 CHECKPOINT_DIR = MODELS_DIR / "checkpoint"
@@ -49,7 +50,8 @@ def save_checkpoint(history, rated_nets, near_misses, donors=()):
     temp_path = HISTORY_PATH.with_suffix(".tmp")
     temp_path.write_text(json.dumps({"rating_basis": RATING_BASIS, "history": history,
                                      "nets": meta(rated_nets), "near_misses": meta(near_misses),
-                                     "donors": [{"generation": g, "score": score} for g, _, score in donors]}))
+                                     "donors": [{"generation": g, "score": score} for g, _, score in donors],
+                                     "donor_features": NUM_FEATURES}))
     temp_path.replace(HISTORY_PATH)          # swap in one step so a stop mid-save can't corrupt it
 
 
@@ -66,6 +68,10 @@ def load_checkpoint():
     entries = saved.get("donors") or ([saved["donor"]] if saved.get("donor") else [])
     paths = [_donor_path(i) if "donors" in saved else OLD_DONOR_PATH for i in range(len(entries))]
     donors = [(e["generation"], load_net(path), e["score"]) for e, path in zip(entries, paths)]
+    if donors and saved.get("donor_features") != NUM_FEATURES:
+        # donors made before the inputs changed have zeros for the new ones, and their scores would block better donors
+        print(f"The inputs changed since the {len(donors)} saved donors were made, so they were dropped")
+        donors = []
     return (saved["history"], load("net", saved["nets"]), load("miss", saved.get("near_misses", [])),
             saved.get("rating_basis", 1), donors)
 
