@@ -5,10 +5,13 @@ from .encoding import NUM_FEATURES
 from .rng import rng
 
 
+HIDDEN = 256       # neurons in the hidden layer for new nets; older, narrower nets are widened to this (see widened)
+
+
 class Net:
     """inputs -> hidden -> 1 output (score from -1 = losing to +1 = winning)."""
 
-    def __init__(self, hidden=64):
+    def __init__(self, hidden=HIDDEN):
         self.W1 = rng.normal(0, 0.1, (NUM_FEATURES, hidden)).astype(np.float32)
         self.b1 = np.zeros(hidden, dtype=np.float32)
         self.W2 = rng.normal(0, 0.3, (hidden, 1)).astype(np.float32)
@@ -18,6 +21,20 @@ class Net:
         """An independent copy with the same weights (used to warm-start the next generation)."""
         other = Net.__new__(Net)
         other.W1, other.b1, other.W2, other.b2 = self.W1.copy(), self.b1.copy(), self.W2.copy(), self.b2.copy()
+        return other
+
+    def widened(self, hidden=HIDDEN):
+        """A copy with more hidden neurons that scores every position exactly as this net does. The new
+        neurons start with zero weights from the inputs, so they output 0 and change nothing, and small random
+        weights to the output, so training can start using them."""
+        extra = hidden - self.W1.shape[1]
+        if extra <= 0:
+            return self.copy()
+        other = Net.__new__(Net)
+        other.W1 = np.hstack([self.W1, np.zeros((NUM_FEATURES, extra), dtype=np.float32)])
+        other.b1 = np.concatenate([self.b1, np.zeros(extra, dtype=np.float32)])
+        other.W2 = np.vstack([self.W2, rng.normal(0, 0.1, (extra, 1)).astype(np.float32)])
+        other.b2 = self.b2.copy()
         return other
 
     def predict(self, X):
