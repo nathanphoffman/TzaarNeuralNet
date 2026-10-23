@@ -50,7 +50,7 @@ Every new net gets an Elo-style rating (random player = 0, +100 is about a 64% w
 2. Its rating is at least 5 Elo above the best net's.
 3. It still beats a random player at least 90% of the time (a safety floor).
 
-**Re-test:** a net that fails narrowly (its rating clears the bar but it won at least 48% against the best net, or it won at least 52% but its rating is up to 20 Elo short) plays one extra 1,600-game match against the best net before it is rejected, because a normal test is only accurate to about 2.5 points. The re-test alone decides: 52% or more accepts it, 50% to 52% keeps it as a near miss, anything lower rejects it. The first test's lucky or unlucky games are not pooled in.
+**Re-test:** a net that fails narrowly (its rating clears the bar but it won at least 48% against the best net, or it won at least 52% but its rating is up to 20 Elo short) plays one extra 1,600-game match against the best net before it is rejected, because a normal test is only accurate to about 2.5 points. The re-test alone decides: 52% or more accepts it, 50% to 52% keeps it as a near miss, anything lower rejects it. The first test's lucky or unlucky games are not pooled in. A net accepted after a re-test gets the rating "best net's rating + the gap that re-test win rate implies", since that match is more reliable than the three-opponent average.
 
 **Near misses:** a rejected net that still won at least 50% against the best net is saved (`models/checkpoint/miss_gen*.npz`) and joins the pool of self-play opponents, because it is nearly as strong as the best net. Near misses are never used as rating references. In the training log they are marked with `*`.
 

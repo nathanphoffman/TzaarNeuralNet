@@ -20,7 +20,7 @@ RANDOM_GAMES = 1500
 START_GAMES = 100             # games per self-play batch and per test match in generation 0...
 GAMES_PER_GENERATION = 20     # ...growing by this many games for each generation after
 MAX_SELF_PLAY_GAMES = 800
-MAX_MATCH_GAMES = 400
+MAX_MATCH_GAMES = 600
 WARM_START = True             # new nets start as a copy of the best net instead of from scratch
 WARM_START_EPOCHS = 10
 WARM_START_LEARNING_RATE = 0.02
@@ -187,10 +187,17 @@ def run_self_play_generations(generations, history, rated_nets, near_misses, bat
             retest = win_rate(player, make_net_player(best), RETEST_GAMES)
             accepted = retest >= MIN_SCORE_VS_BEST
             near_miss = not accepted and retest >= NEAR_MISS_SCORE
+            if accepted:
+                # the big match against the best net is a more reliable measurement than the average over
+                # three opponents, so base the new rating on it. Otherwise the best net's rating could
+                # drift down each time a net squeaks in with a lower average
+                rating = best_rating + elo_gap(retest)
 
         outcome = "ACCEPTED" if accepted else "rejected (near miss, kept as an opponent)" if near_miss else "rejected"
         if retest is not None:
             outcome += f" (re-test: {retest:.3f} over {RETEST_GAMES} games)"
+            if accepted:
+                outcome += f", rating set to {rating:.0f} from the re-test"
         print(f"   gen {generation}: -> {outcome}")
         add_row(history, generation, rating, score_vs_random, match_games, score_vs_best, accepted, near_miss, retest)
         if accepted:
