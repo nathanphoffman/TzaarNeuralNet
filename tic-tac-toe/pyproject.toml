@@ -1,7 +1,0 @@
-[project]
-name = "tic-tac-toe"
-version = "0.1.0"
-description = "Tic-tac-toe neural net trained with self-play, with a small web UI to play against it"
-readme = "README.md"
-requires-python = ">=3.10"
-dependencies = ["numpy"]

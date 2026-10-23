@@ -10,4 +10,4 @@ __pycache__/
 .DS_Store
 
 # Near-miss nets: only needed to resume training, and they add up fast
-tzaar/models/*/checkpoint/miss_*.npz
+models/*/checkpoint/miss_*.npz
