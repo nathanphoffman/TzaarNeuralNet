@@ -64,7 +64,7 @@ inputs. In normal games those situations are rare, so the net sees few examples 
 ## How to back out
 
 - Models from before the second layer: the `bafa982` commit ("checkpointing models", gen 228) or `14ad200`
-  ("new high hit at 772 ELO"). Restore with `git checkout <commit> -- tzaar/models`, then `git clean -fd tzaar/models`.
+  ("new high hit at 772 ELO"). Restore with `git checkout <commit> -- models`, then `git clean -fd models`.
 - Code: the layer and donor changes are in `0011bc0`. To turn the layer off without removing the code, make
   `Net.__init__` and `Net.deepened()` skip `add_second_layer`, and remove the "Added a second hidden layer" step in
   `train_model`.
