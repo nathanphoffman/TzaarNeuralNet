@@ -1,9 +1,50 @@
-"""Turn positions into numbers the network can read."""
+"""Turn positions into numbers the network can read.
+
+Inputs, in order (793 in all):
+  0-359    presence: for each of 6 piece slots (my/their Tzaar, Tzaara, Tott) x 60 points, 1 if it is there
+  360-719  height: the same layout, stack height / 5
+  720      flag: 1 if the same player moves again (the second action of a turn)
+  721-726  pieces left: my/their Tzaar, Tzaara, Tott, as a share of how many each side starts with
+  727-732  danger: 1 if a side has exactly one stack of that type left (losing the last one loses the game)
+  733-792  threat: for each of the 60 points, 1 if my stack there could be captured by the opponent next move
+"""
 import numpy as np
 
-from .board import NUM_POINTS
+from .board import NUM_POINTS, RAY_TABLE
+from .game import PIECES_PER_KIND
 
-NUM_FEATURES = NUM_POINTS * 6 * 2 + 1   # per point: 6 (side x kind) presence + 6 heights, + 1 flag
+NUM_FEATURES = NUM_POINTS * 6 * 2 + 1 + 6 + 6 + NUM_POINTS
+START_COUNTS = np.tile(np.array(PIECES_PER_KIND, dtype=np.float32), 2)       # for [my 3 kinds, their 3 kinds]
+
+
+def piece_counts(owner, kind, actor):
+    """(M, 6): stacks left of [my Tzaar, Tzaara, Tott, their Tzaar, Tzaara, Tott]. A stack counts as its top piece."""
+    return np.stack([((owner == side) & (kind == k)).sum(axis=1)
+                     for side in (actor, -actor) for k in range(3)], axis=1)
+
+
+def threatened_stacks(owner, height, actor):
+    """(M, 60): 1 where one of actor's stacks could be captured if the opponent were to move now.
+    A stack can be captured by an enemy stack at least as tall that reaches it along a straight line
+    with nothing in between (the first piece on the line is the one it can hit)."""
+    count = owner.shape[0]
+    occupied = np.concatenate([owner != 0, np.zeros((count, 1), dtype=bool)], axis=1)    # extra column = padding
+    owner_ext = np.concatenate([owner, np.zeros((count, 1), dtype=owner.dtype)], axis=1)
+    height_ext = np.concatenate([height, np.zeros((count, 1), dtype=height.dtype)], axis=1)
+
+    position, source = np.nonzero(owner == -actor)               # only the opponent's stacks can attack
+    rays = RAY_TABLE[source]                                     # (n, direction, step): points along each line
+    ray_occupied = occupied[position[:, None, None], rays]
+    has_target = ray_occupied.any(axis=2)                        # (n, direction)
+    first = ray_occupied.argmax(axis=2)                          # first occupied step on each line
+    target = np.take_along_axis(rays, first[..., None], axis=2)[..., 0]
+    can_hit = (has_target & (owner_ext[position[:, None], target] == actor)
+               & (height_ext[position[:, None], target] <= height[position, source][:, None]))
+
+    hit_position, hit_direction = np.nonzero(can_hit)
+    threat = np.zeros((count, NUM_POINTS + 1), dtype=np.float32)
+    threat[position[hit_position], target[hit_position, hit_direction]] = 1
+    return threat[:, :NUM_POINTS]
 
 
 def encode_batch(owner, kind, height, actor, actor_moves_again):
@@ -19,7 +60,10 @@ def encode_batch(owner, kind, height, actor, actor_moves_again):
     heights[rows, channel, points] = height[rows, points] / 5
 
     flag = np.asarray(actor_moves_again, dtype=np.float32).reshape(count, 1)
-    return np.concatenate([presence.reshape(count, -1), heights.reshape(count, -1), flag], axis=1)
+    counts = piece_counts(owner, kind, actor)
+    return np.concatenate([presence.reshape(count, -1), heights.reshape(count, -1), flag,
+                           (counts / START_COUNTS).astype(np.float32), (counts == 1).astype(np.float32),
+                           threatened_stacks(owner, height, actor)], axis=1)
 
 
 def encode_state(state, actor):
