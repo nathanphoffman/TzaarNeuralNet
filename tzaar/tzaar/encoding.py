@@ -14,6 +14,7 @@ from .board import NUM_POINTS, RAY_TABLE
 from .game import PIECES_PER_KIND
 
 NUM_FEATURES = NUM_POINTS * 6 * 2 + 1 + 6 + 6 + NUM_POINTS
+SIGNALS_START = NUM_POINTS * 6 * 2 + 1       # inputs from here on (pieces left, danger, threat) came after the first nets
 START_COUNTS = np.tile(np.array(PIECES_PER_KIND, dtype=np.float32), 2)       # for [my 3 kinds, their 3 kinds]
 
 
