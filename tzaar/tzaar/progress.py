@@ -7,6 +7,8 @@ import json
 import os
 import threading
 import time
+RUNNING_KEY = "running"        # keys of the progress snapshot that the dashboard also reads
+ELAPSED_KEY = "elapsed"
 
 class Progress:
     def __init__(self):
@@ -81,6 +83,9 @@ class Progress:
             return self._snapshot()
 
     def _snapshot(self):
+        """The progress as a dict for the dashboard. The bar is by steps done; for a run with no end it shows the
+        steps done in the current generation instead."""
+
         end_time = self.finished_at or time.time()
 
         if not self.running:
@@ -91,8 +96,8 @@ class Progress:
         else:
             fraction = max(0, self.steps_started - 1) / max(1, self.total_steps)
 
-        return {"status": self.status, "running": self.running, "summary": self.summary,
-                "elapsed": end_time - self.started_at, "fraction": fraction,
+        return {"status": self.status, RUNNING_KEY: self.running, "summary": self.summary,
+                ELAPSED_KEY: end_time - self.started_at, "fraction": fraction,
                 "total_generations": self.total_generations, "match_games": self.match_games,
                 "generations": list(self.generations)}
 

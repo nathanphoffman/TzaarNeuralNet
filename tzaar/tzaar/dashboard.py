@@ -13,6 +13,7 @@ from urllib.parse import parse_qs, urlparse
 
 from .checkpoint import HISTORY_KEY, history_path
 from .model_store import list_models, model_dir
+from .progress import ELAPSED_KEY, RUNNING_KEY
 from .web_response import HTML_TYPE, send, send_json
 
 DASHBOARD_HTML = Path(__file__).resolve().parent.parent / "web" / "dashboard.html"
@@ -35,9 +36,9 @@ def model_progress(name):
     progress_path = model_dir(name) / "progress.json"
     snapshot = json.loads(progress_path.read_text()) if progress_path.exists() else None
 
-    if snapshot and snapshot["running"]:
+    if snapshot and snapshot[RUNNING_KEY]:
         if _alive(snapshot["pid"]):
-            snapshot["elapsed"] += time.time() - snapshot["written_at"]     # the file is only written between steps
+            snapshot[ELAPSED_KEY] += time.time() - snapshot["written_at"]     # the file is only written between steps
 
             return snapshot
 
@@ -50,11 +51,12 @@ def model_progress(name):
 
     rows = json.loads(history_path(name).read_text())[HISTORY_KEY] if history_path(name).exists() else []
 
-    return {"status": "Not running", "running": False, "summary": "Training is not running.", "elapsed": 0,
+    return {"status": "Not running", RUNNING_KEY: False, "summary": "Training is not running.", ELAPSED_KEY: 0,
             "fraction": 1.0, "total_generations": None, "match_games": None, "generations": rows}
 
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
+        """/api/models lists the models, /api/progress?model=<name> gives one model's progress, anything else is the page."""
         parsed_url = urlparse(self.path)
 
         if parsed_url.path == "/api/models":

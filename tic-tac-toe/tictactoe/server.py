@@ -13,16 +13,18 @@ from .training import train_model
 INDEX_HTML = Path(__file__).resolve().parent.parent / "web" / "index.html"
 PORT = 8000
 
-
 def get_net():
     """Load the saved net, or train and save one if there isn't one yet."""
+
     if MODEL_PATH.exists():
         print("Loaded", MODEL_PATH)
+
         return load_net()
+
     net = train_model()
     save_net(net)
-    return net
 
+    return net
 
 def make_handler(net_player):
     class Handler(BaseHTTPRequestHandler):
@@ -41,8 +43,8 @@ def make_handler(net_player):
             self.send_header("Content-Type", content_type)
             self.end_headers()
             self.wfile.write(body)
-    return Handler
 
+    return Handler
 
 def run_server():
     net_player = make_net_player(get_net())

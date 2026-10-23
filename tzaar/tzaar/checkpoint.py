@@ -32,7 +32,7 @@ def _donor_path(index):
 def _net_path(kind, generation):
     """kind is "net" (accepted) or "miss" (a near-miss that was rejected but kept as an opponent)."""
 
-    return checkpoint_dir() / f"{kind}_gen{generation:04d}.npz"
+    return model_dir() / "checkpoint" / f"{kind}_gen{generation:04d}.npz"
 
 def save_checkpoint(history, rated_nets, near_misses, donors=()):
     """history: one row per generation. rated_nets / near_misses: [(generation, net, rating)],

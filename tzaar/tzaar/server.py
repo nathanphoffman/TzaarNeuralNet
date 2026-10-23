@@ -39,9 +39,6 @@ def available_nets():
 
     return [model for model in models if model[NETS_KEY]]
 
-def has_net(name, generation):
-    return any(net[GENERATION_KEY] == generation for net in accepted_nets(name))
-
 class NetPlayers:
     """The players for the nets you can pick, loaded the first time they are used. The list of nets is read
     again for each new one, so nets accepted while the server is up can be played too."""
@@ -51,7 +48,7 @@ class NetPlayers:
 
     def player_for(self, name, generation):
         if (name, generation) not in self.players:
-            if not has_net(name, generation):
+            if generation not in [net[GENERATION_KEY] for net in accepted_nets(name)]:
                 raise ValueError("unknown net")
 
             path = model_dir(name) / "checkpoint" / f"net_gen{generation:04d}.npz"
