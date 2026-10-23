@@ -41,9 +41,20 @@ The training data isn't saved. On resume it is rebuilt from a few fresh self-pla
 
 1. Play random-vs-random games and record each position with who won.
 2. Train generation 0 on that data.
-3. For each generation: the best net plays itself (with 20% random moves), a fresh net trains on the last 3 batches of data, and it replaces the best net only if it beats it and doesn't get worse against a random player.
+3. For each generation: the best net plays self-play games against itself, older accepted nets and near-miss nets (see below), a new net starts as a copy of the best net and trains a bit more on the last 3 batches of games, and it replaces the best net only if it passes the acceptance checks.
 
-Every new net also gets an Elo-style rating (random player = 0, +100 is about a 64% win rate). It is worked out by playing 400 games against each of the last 3 accepted nets and against a random player, then averaging what each result implies. A rating that stops climbing means the setup has hit its ceiling.
+Every new net gets an Elo-style rating (random player = 0, +100 is about a 64% win rate). It is the average of what its head-to-head results against the last 3 accepted nets imply. The random player is left out of that average on purpose (it is nearly maxed out and very noisy). A rating that stops climbing means the setup has hit its ceiling.
+
+**A new net is accepted only if all of these hold** (settings at the top of `tzaar/training.py`):
+1. It wins at least 52% of games against the best net.
+2. Its rating is at least 5 Elo above the best net's.
+3. It still beats a random player at least 90% of the time (a safety floor).
+
+**Re-test:** a net that fails narrowly (its rating clears the bar but it won at least 48% against the best net, or it won at least 52% but its rating is up to 20 Elo short) plays one extra 1,600-game match against the best net before it is rejected, because a normal test is only accurate to about 2.5 points. The re-test alone decides: 52% or more accepts it, 50% to 52% keeps it as a near miss, anything lower rejects it. The first test's lucky or unlucky games are not pooled in.
+
+**Near misses:** a rejected net that still won at least 50% against the best net is saved (`models/checkpoint/miss_gen*.npz`) and joins the pool of self-play opponents, because it is nearly as strong as the best net. Near misses are never used as rating references. In the training log they are marked with `*`.
+
+Checkpoints from before this rule load fine: on the first resume the best net is re-rated once from head-to-head games only, so it can be compared with new ratings. Ratings in the history before that point include the random player, so the rating chart has a small step there.
 
 The net looks one action ahead: it tries every legal action, scores the resulting position, and plays the best. That makes it a basic player, not a strong one. Settings are at the top of `tzaar/training.py`.
 
