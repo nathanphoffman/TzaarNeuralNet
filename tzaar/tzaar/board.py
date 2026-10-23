@@ -3,6 +3,7 @@
 Points are numbered 0..59. Pieces move along the 6 straight lines through a point.
 The centre of the board is a gap: nothing can land on it or jump over it.
 """
+import numpy as np
 
 RADIUS = 4
 DIRECTIONS = [(1, 0), (-1, 0), (0, 1), (0, -1), (1, -1), (-1, 1)]
@@ -32,3 +33,11 @@ def _build_rays():
 
 
 RAYS = _build_rays()
+
+# The same rays as one padded array indexed [point, direction, step], so many positions can be checked at once.
+# Unused steps hold NUM_POINTS: a made-up extra point that is always empty.
+MAX_RAY = max(len(ray) for point_rays in RAYS for ray in point_rays)
+RAY_TABLE = np.full((NUM_POINTS, len(DIRECTIONS), MAX_RAY), NUM_POINTS, dtype=np.int64)
+for _point, _point_rays in enumerate(RAYS):
+    for _direction, _ray in enumerate(_point_rays):
+        RAY_TABLE[_point, _direction, :len(_ray)] = _ray

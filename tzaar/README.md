@@ -56,6 +56,8 @@ Every new net gets an Elo-style rating (random player = 0, +100 is about a 64% w
 
 Checkpoints from before this rule load fine: on the first resume the best net is re-rated once from head-to-head games only, so it can be compared with new ratings. Ratings in the history before that point include the random player, so the rating chart has a small step there.
 
+**What the net sees (793 inputs):** for each of the 60 points, which piece is there and how tall the stack is (720 numbers), a flag for "the same player moves again", how many stacks of each type each side has left (6 numbers, as a share of the starting count), 6 "only one left" danger flags, and a 60-point threat map marking which of your stacks the opponent could capture next move. Nets saved before the last 72 inputs existed still load: the missing weights are filled with zeros, so they play exactly as before and can learn to use the new inputs. The code sets numpy to one thread (in `tzaar/__init__.py`), because on a many-core machine its default threading makes these small matrix multiplications 10 to 25 times slower.
+
 The net looks one action ahead: it tries every legal action, scores the resulting position, and plays the best. That makes it a basic player, not a strong one. Settings are at the top of `tzaar/training.py`.
 
 ## Layout
