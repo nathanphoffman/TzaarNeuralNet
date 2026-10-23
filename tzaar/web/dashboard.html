@@ -102,6 +102,10 @@
   .tip .row span.name { color: var(--ink-2); display: flex; align-items: center; gap: 6px; }
   .tip .row b { font-weight: 600; color: var(--ink); }
   .tip .key { display: inline-block; width: 12px; height: 3px; border-radius: 2px; }
+  .controls label { display: inline-flex; align-items: center; gap: 6px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 6px 20px; margin-top: 8px; font-size: 14px; color: var(--ink-2); }
+  .controls input[type=number] { width: 70px; font: inherit; padding: 2px 6px; color: var(--ink); background: var(--surface);
+    border: 1px solid var(--axis); border-radius: 6px; }
   .fine { color: var(--ink-2); font-size: 13px; margin: 6px 0 0; }
 
   /* table */
@@ -151,6 +155,15 @@
   <section class="card">
     <h2>Rating by generation</h2>
     <div class="sub">Each new net is rated against the latest accepted nets and a random player. Higher is better.</div>
+    <div class="controls">
+      <label><input type="checkbox" id="proj-on" checked>
+        <svg width="26" height="8" aria-hidden="true"><line x1="1" y1="4" x2="25" y2="4" stroke="var(--series-1)" stroke-width="2" stroke-dasharray="6 5" stroke-linecap="round" opacity="0.6"/></svg>
+        Quadratic projection</label>
+      <label><input type="checkbox" id="proj-sat" checked>
+        <svg width="26" height="8" aria-hidden="true"><line x1="1" y1="4" x2="25" y2="4" stroke="var(--series-1)" stroke-width="2" stroke-dasharray="1 5" stroke-linecap="round" opacity="0.9"/></svg>
+        Levelling-off projection</label>
+      <label>for the next <input type="number" id="proj-n" min="1" max="1000" value="25"> generations</label>
+    </div>
     <div class="chart" id="chart-rating"><div class="tip"></div></div>
     <p class="fine" id="note-rating"></p>
   </section>
@@ -181,12 +194,13 @@ const pct = v => v == null ? '–' : Math.round(v * 100) + '%';
 // One entry per chart. `domain(rows)` gives the y range and tick step; `format` writes values.
 const CHARTS = [
   {el: 'chart-rating', series: [{key: 'rating', label: 'Rating (Elo)', color: 'var(--series-1)'}],
-   domain: ratingDomain, format: v => String(Math.round(v)), activeGen: null},
+   domain: rows => ratingDomain(rows, projectionForDomain(rows)), project: true,
+   format: v => String(Math.round(v)), activeGen: null},
   {el: 'chart-win', series: [{key: 'vs_random', label: 'vs random', color: 'var(--series-2)'},
                              {key: 'vs_best', label: 'vs best so far', color: 'var(--series-3)'}],
    domain: () => ({min: 0, max: 1, step: 0.25}), format: pct, activeGen: null},
 ];
-let data = null, fetchedAt = 0;
+let data = null, fetchedAt = 0, showProjection = true, showLevelling = true, projectAhead = 25;
 
 const $ = id => document.getElementById(id);
 
@@ -208,13 +222,108 @@ function fmtTime(seconds) {
   return `${m}:${String(s % 60).padStart(2, '0')}`;
 }
 // Rating axis: round to clean steps around the data, at least two steps tall
-function ratingDomain(rows) {
-  const values = rows.map(r => r.rating);
+function ratingDomain(rows, extra = []) {
+  const values = rows.map(r => r.rating).concat(extra);
   if (!values.length) return {min: 0, max: 400, step: 100};
   const lo = Math.min(...values), hi = Math.max(...values);
   const step = hi - lo > 600 ? 200 : 100;
   const min = Math.floor((lo - 50) / step) * step;
   return {min, max: Math.max(Math.ceil((hi + 50) / step) * step, min + 2 * step), step};
+}
+
+/* ---------- projections, fitted to the accepted nets ---------- */
+// 1) quadratic: a plain curve through the points. It bends only if the data already bends.
+function fitQuadratic(points) {          // points: [[x, y], ...] -> a function f(x), or null if it can't be fitted
+  if (points.length < 3) return null;
+  const mx = points.reduce((sum, p) => sum + p[0], 0) / points.length;      // centre x for numerical stability
+  const S = k => points.reduce((sum, [x]) => sum + (x - mx) ** k, 0);
+  const T = k => points.reduce((sum, [x, y]) => sum + y * (x - mx) ** k, 0);
+  // least squares for y = a + b*u + c*u^2 (u = x - mx): solve the 3x3 normal equations
+  const A = [[S(0), S(1), S(2), T(0)], [S(1), S(2), S(3), T(1)], [S(2), S(3), S(4), T(2)]];
+  for (let i = 0; i < 3; i++) {
+    let pivot = i;
+    for (let r = i + 1; r < 3; r++) if (Math.abs(A[r][i]) > Math.abs(A[pivot][i])) pivot = r;
+    [A[i], A[pivot]] = [A[pivot], A[i]];
+    if (Math.abs(A[i][i]) < 1e-9) return null;
+    for (let r = 0; r < 3; r++) {
+      if (r === i) continue;
+      const f = A[r][i] / A[i][i];
+      for (let c = i; c < 4; c++) A[r][c] -= f * A[i][c];
+    }
+  }
+  const [a, b, c] = A.map((row, i) => row[3] / row[i]);
+  return {f: x => a + b * (x - mx) + c * (x - mx) ** 2};
+}
+
+// 2) levelling off: y = ceiling - gap * exp(-k * x). Each generation closes the same share of the
+// remaining gap to the ceiling. For each candidate k the other two numbers are an ordinary least squares fit.
+const K_MIN = 0.002, K_MAX = 0.5;
+const K_GRID = Array.from({length: 120}, (_, i) => K_MIN * Math.pow(K_MAX / K_MIN, i / 119));
+function fitLevelling(points) {          // -> {f, ceiling, k} or null
+  if (points.length < 4) return null;
+  const x0 = points[0][0], n = points.length;
+  const sy = points.reduce((sum, p) => sum + p[1], 0);
+  let best = null;
+  for (const k of K_GRID) {
+    const e = points.map(([x]) => Math.exp(-k * (x - x0)));
+    const se = e.reduce((a, b) => a + b, 0), see = e.reduce((a, b) => a + b * b, 0);
+    const sey = e.reduce((sum, v, i) => sum + v * points[i][1], 0);
+    const det = n * see - se * se;
+    if (Math.abs(det) < 1e-12) continue;
+    const B = (n * sey - se * sy) / det, L = (sy - B * se) / n;       // y = L + B*e, B < 0 means rising to L
+    if (B >= 0) continue;
+    const sse = e.reduce((sum, v, i) => sum + (points[i][1] - (L + B * v)) ** 2, 0);
+    if (!best || sse < best.sse) best = {sse, k, L, B};
+  }
+  if (!best) return null;
+  return {f: x => best.L + best.B * Math.exp(-best.k * (x - x0)), ceiling: best.L, k: best.k};
+}
+function mulberry32(seed) {              // small seeded random generator, so the range doesn't jitter between redraws
+  return () => {
+    seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+// The ceiling is the shaky number, so refit on resampled data to see how far it could plausibly move
+let levellingCache = {key: '', fit: null};
+function fitLevellingWithRange(points) {
+  const key = JSON.stringify(points);
+  if (levellingCache.key === key) return levellingCache.fit;
+  let fit = fitLevelling(points);
+  if (fit) {
+    const rand = mulberry32(12345), ceilings = [];
+    for (let i = 0; i < 120; i++) {
+      const resampled = Array.from(points, () => points[Math.floor(rand() * points.length)]);
+      const refit = fitLevelling(resampled);
+      if (refit) ceilings.push(refit.ceiling);
+    }
+    ceilings.sort((a, b) => a - b);
+    const pick = q => ceilings[Math.min(ceilings.length - 1, Math.floor(q * ceilings.length))];
+    fit = {...fit, low: ceilings.length >= 30 ? pick(0.1) : null, high: ceilings.length >= 30 ? pick(0.9) : null,
+           // no slowdown visible: the fit sits at the slowest rate we allow, or the ceiling is far above anything seen
+           unbounded: fit.k <= K_MIN * 1.01 || fit.ceiling > Math.max(...points.map(p => p[1])) + 1000};
+  }
+  levellingCache = {key, fit};
+  return fit;
+}
+
+// kind is 'quad' or 'levelling'; returns the dashed line to draw (or null) plus what the notes need
+function getProjection(kind) {
+  if (!data || !data.generations.length || !(kind === 'quad' ? showProjection : showLevelling)) return null;
+  const accepted = data.generations.filter(r => r.accepted).map(r => [r.generation, r.rating]);
+  const fit = kind === 'quad' ? fitQuadratic(accepted) : fitLevellingWithRange(accepted);
+  if (!fit) return null;
+  const lastGen = data.generations[data.generations.length - 1].generation, endGen = lastGen + projectAhead;
+  const points = [];
+  for (let g = lastGen; g <= endGen; g++) points.push([g, fit.f(g)]);
+  return {kind, fit, points, lastGen, endGen, endValue: fit.f(endGen), count: accepted.length};
+}
+const activeProjections = () => ['quad', 'levelling'].map(getProjection).filter(Boolean);
+// A curve can shoot off to extremes; keep the axis reasonable and let the plot area clip the rest
+function projectionForDomain(rows) {
+  if (!rows.length) return [];
+  const ratings = rows.map(r => r.rating), lo = Math.min(...ratings) - 100, hi = Math.max(...ratings) + 400;
+  return activeProjections().flatMap(proj => proj.points.map(([, v]) => Math.max(lo, Math.min(hi, v))));
 }
 
 /* ---------- polling ---------- */
@@ -313,6 +422,22 @@ function renderNotes() {
   const range = fewest === most ? `${fewest}` : `${fewest} to ${most}`;
   $('note-rating').textContent = 'The random player is 0. +100 Elo is about a 64% win rate, +200 about 76%. ' +
     'Ratings are rough: differences under about 20 points are mostly noise. ✓ = new net accepted, ✕ = rejected.';
+  const quad = getProjection('quad'), lev = getProjection('levelling');
+  let note = '';
+  if (showProjection)
+    note += quad
+      ? ` Dashed line: a quadratic curve fitted to the ${quad.count} accepted nets, reaching about ${Math.round(quad.endValue)} at generation ${quad.endGen}. It only bends if the data already does.`
+      : ' The quadratic projection needs at least 3 accepted nets.';
+  if (showLevelling) {
+    if (!lev) note += ' The levelling-off projection needs at least 4 accepted nets.';
+    else if (lev.fit.unbounded)
+      note += ` Dotted line: a levelling-off curve. The data shows no real slowdown yet, so it is close to a straight line and its ceiling is unknown. It reaches about ${Math.round(lev.endValue)} at generation ${lev.endGen}.`;
+    else {
+      const range = lev.fit.low === null ? '' : ` (80% range ${Math.round(lev.fit.low)} to ${Math.round(lev.fit.high)})`;
+      note += ` Dotted line: a levelling-off curve that closes about ${Math.round((1 - Math.exp(-lev.fit.k)) * 100)}% of the gap to its ceiling each generation. Estimated ceiling about ${Math.round(lev.fit.ceiling)}${range}; it reaches about ${Math.round(lev.endValue)} at generation ${lev.endGen}. The ceiling is a rough guess.`;
+    }
+  }
+  $('note-rating').textContent += note;
   $('note-win').textContent = `Each point is a win rate over ${range} games (later generations play more), so gaps smaller than about ${se} points are mostly noise early on. ✓ = accepted, ✕ = rejected.`;
 }
 
@@ -323,9 +448,11 @@ function drawChart(cfg) {
   const wrap = $(cfg.el), tip = wrap.querySelector('.tip');
   const W = Math.max(280, wrap.clientWidth), H = Math.round(Math.max(220, Math.min(320, W * 0.45)));
   const rows = data.generations;
-  const N = Math.max(1, data.total_generations ?? (rows.length ? rows[rows.length - 1].generation : 1));
+  const projections = cfg.project ? activeProjections() : [];
+  const N = Math.max(1, data.total_generations ?? (rows.length ? rows[rows.length - 1].generation : 1),
+                     ...projections.map(p => p.endGen));
   const {min, max, step} = cfg.domain(rows);
-  const m = {l: 48, r: 16, t: 12, b: 48};
+  const m = {l: 48, r: projections.length ? 64 : 16, t: 12, b: 48};      // the projection's end value is written in the right margin
   const y = v => m.t + (1 - (v - min) / (max - min)) * (H - m.t - m.b);
 
   // direct end labels only for 2+ series, with room, and when they don't collide (otherwise legend + tooltip carry it)
@@ -364,6 +491,25 @@ function drawChart(cfg) {
 
   const crosshair = el('line', {y1: m.t, y2: H - m.b}, {stroke: 'var(--axis)', strokeWidth: 1, display: 'none'});
   svg.append(crosshair);
+
+  // projections: dashed (quadratic) and dotted (levelling off), clipped to the plot area, end values written at the right
+  if (projections.length) {
+    const clip = el('clipPath', {id: 'plot-clip'});
+    clip.append(el('rect', {x: m.l, y: m.t, width: W - m.l - m.r, height: H - m.t - m.b}));
+    svg.append(clip);
+    let lastLabelY = -99;
+    for (const proj of projections) {
+      const dotted = proj.kind === 'levelling';
+      svg.append(el('path', {d: 'M' + proj.points.map(([g, v]) => `${x(g)},${y(v)}`).join('L'), fill: 'none',
+                             'stroke-linecap': 'round', 'stroke-dasharray': dotted ? '1 5' : '6 5', 'clip-path': 'url(#plot-clip)'},
+                    {stroke: cfg.series[0].color, strokeWidth: 2, opacity: dotted ? 0.9 : 0.6}));
+      const endY = Math.max(m.t, Math.min(H - m.b, y(proj.endValue)));
+      svg.append(el('circle', {cx: x(proj.endGen), cy: endY, r: 4.5}, {fill: 'var(--surface)', stroke: cfg.series[0].color, strokeWidth: 2}));
+      const labelY = Math.abs(endY - lastLabelY) < 14 ? lastLabelY + 14 : endY;      // keep two end labels from overlapping
+      svg.append(el('text', {x: x(proj.endGen) + 10, y: labelY + 4, 'font-size': 12}, {fill: 'var(--ink-2)'}, '≈ ' + Math.round(proj.endValue)));
+      lastLabelY = labelY;
+    }
+  }
 
   // lines, then markers (marker = series dot with a 2px surface ring)
   const ends = [];
@@ -408,6 +554,7 @@ function drawChart(cfg) {
   svg.addEventListener('pointermove', ev => {
     if (!rows.length) return;
     const px = ev.clientX - svg.getBoundingClientRect().left;
+    if (px > x(rows[rows.length - 1].generation) + 14) return hide();        // out in the projection area
     const nearest = rows.reduce((a, b) => Math.abs(x(b.generation) - px) < Math.abs(x(a.generation) - px) ? b : a);
     show(nearest.generation);
   });
@@ -422,6 +569,14 @@ function drawChart(cfg) {
   wrap.append(svg);
   if (cfg.activeGen !== null) show(cfg.activeGen);
 }
+
+function onProjectionChange() { if (data) { drawCharts(); renderNotes(); } }
+$('proj-on').addEventListener('change', e => { showProjection = e.target.checked; onProjectionChange(); });
+$('proj-sat').addEventListener('change', e => { showLevelling = e.target.checked; onProjectionChange(); });
+$('proj-n').addEventListener('input', e => {
+  const n = parseInt(e.target.value, 10);
+  if (n >= 1 && n <= 1000) { projectAhead = n; onProjectionChange(); }
+});
 
 let resizeTimer;
 window.addEventListener('load', () => data && drawCharts());
