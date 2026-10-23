@@ -30,12 +30,17 @@ to the README; when it is backed out, delete its section.
 
 ## 2. More training data and fewer epochs (`training.py`)
 
-- `BATCHES_TO_KEEP`: 5 -> 8. Each new net trains on the games from the last 8 generations (it was 3, then 5).
-- `WARM_START_EPOCHS`: 10 -> 6 -> 2 -> 1. Each new net makes fewer passes over that data, so it drifts less from the
+- `BATCHES_TO_KEEP`: 5 -> 8 -> 2. Each new net trains on the games from the last 2 generations (it was 3, then 5,
+  then 8). It is only 2 because each batch is now huge, see `MAX_SELF_PLAY_GAMES`.
+- Epochs: was a fixed `WARM_START_EPOCHS` (10 -> 6 -> 2 -> 1), now `epochs_for(rating)` in `training.py`:
+  `max(1, round(6 - rating / 100))` using the best net's rating, so 6 at rating 0, 3 at 300, and 1 from about 500
+  up (the current run is at 1). Each new net makes fewer passes over that data, so it drifts less from the
   best net it started from. Each position is labeled with the result of the whole game, which is noisy, so many
   passes mostly fit the noise.
-- `MAX_SELF_PLAY_GAMES`: 800 -> 1000. The best net plays up to 25% more self-play games per generation, so every
-  batch is bigger. (The test matches stay at `MAX_MATCH_GAMES = 600`.)
+- `MAX_SELF_PLAY_GAMES`: 800 -> 1000 -> 5000. The best net plays up to 5 times as many self-play games per
+  generation. A position is about 3.2 KB, so a 5000-game batch is roughly 670 MB, and the machine has 12 GB, which
+  is why only 2 batches are kept. If it runs out of memory, lower one of the two. (The test matches stay at
+  `MAX_MATCH_GAMES = 600`.)
 - These were changed together, so if the scores improve we won't know which one did it.
 - Raising the batches and the games makes each restart play more games to refill the batches. Fewer epochs
   makes the training step faster.

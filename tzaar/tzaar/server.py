@@ -4,12 +4,14 @@ API (all POST, JSON in and out; the browser sends the whole game state each time
   /api/new               -> a fresh random game
   /api/move {state, move}-> your move applied
   /api/ai   {state}      -> the net picks and plays a move
+GET /api/info            -> which generation of the net you are playing, and its rating
 """
 import json
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
 from .board import POINTS
+from .checkpoint import HISTORY_PATH
 from .game import State, new_game
 from .model_store import MODEL_PATH, load_net, save_net
 from .players import make_net_player
@@ -29,14 +31,25 @@ def get_net():
     return net
 
 
+def net_info():
+    """The generation and Elo rating of the best net, from the training history (None if there isn't one)."""
+    try:
+        best = json.loads(HISTORY_PATH.read_text())["nets"][-1]
+        return {"generation": best["generation"], "rating": round(best["rating"])}
+    except (OSError, ValueError, KeyError, IndexError):
+        return None
+
+
 def game_response(state, last_move=None):
     return {"state": state.to_dict(), "points": POINTS, "last_move": last_move,
             "legal_moves": [list(move) for move in state.legal_moves()]}
 
 
-def make_handler(net_player):
+def make_handler(net_player, info):
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
+            if self.path == "/api/info":
+                return self._send_json(200, info)
             self._send(200, "text/html", INDEX_HTML.read_bytes())
 
         def do_POST(self):
@@ -75,5 +88,8 @@ def make_handler(net_player):
 
 def run_server():
     net_player = make_net_player(get_net())
+    info = net_info()
+    if info:
+        print(f"Playing generation {info['generation']} (rating {info['rating']})")
     print(f"Open http://localhost:{PORT}")
-    HTTPServer(("", PORT), make_handler(net_player)).serve_forever()
+    HTTPServer(("", PORT), make_handler(net_player, info)).serve_forever()
