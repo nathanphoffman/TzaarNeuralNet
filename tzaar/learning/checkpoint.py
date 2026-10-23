@@ -7,8 +7,9 @@ training at any time and the next run continues from the last finished generatio
 import json
 import shutil
 
-from .encoding import NUM_FEATURES
-from .model_store import load_net, model_dir, save_net
+from tzaar.rules.encoding import NUM_FEATURES
+from tzaar.learning.checkpoint_paths import checkpoint_dir, donor_path, history_path, net_path, old_donor_path
+from tzaar.nets.model_store import load_net, model_path, save_net
 
 GENERATION_KEY = "generation"      # the keys used in history.json and in the rows of the history
 RATING_KEY = "rating"
@@ -17,27 +18,8 @@ HISTORY_KEY = "history"
 DONORS_KEY = "donors"
 RATING_BASIS = 2          # 1 = old ratings (the random player was averaged in), 2 = head-to-head games only
 
-def checkpoint_dir(name=None):
-    return model_dir(name) / "checkpoint"
-
-def history_path(name=None):
-    return checkpoint_dir(name) / "history.json"
-
-def _old_donor_path():
-    return checkpoint_dir() / "donor.npz"      # from when only one donor was kept
-
-def _donor_path(index):
-    return checkpoint_dir() / f"donor_{index}.npz"
-
-def net_path(kind, generation, name=None):
-    """kind is "net" (accepted) or "miss" (a near-miss that was rejected but kept as an opponent)."""
-
-    return checkpoint_dir(name) / f"{kind}_gen{generation:04d}.npz"
-
-def save_checkpoint(history, rated_nets, near_misses, donors=()):
-    """history: one row per generation. rated_nets / near_misses: [(generation, net, rating)],
-    oldest first. donors: [(generation, net, score vs best)], oldest first, see training.py. Also keeps
-    the model's model.npz up to date with the best net."""
+def save_nets(history, rated_nets, near_misses):
+    """Save every accepted and near-miss net that is not saved yet, and the best net as the model's model.npz."""
 
     checkpoint_dir().mkdir(parents=True, exist_ok=True)
     current = history[-1][GENERATION_KEY]
@@ -50,16 +32,21 @@ def save_checkpoint(history, rated_nets, near_misses, donors=()):
             if generation == current or not path.exists():
                 save_net(network, path)
 
-    save_net(rated_nets[-1][1])
-    _old_donor_path().unlink(missing_ok=True)
+    save_net(rated_nets[-1][1], model_path())
+
+def save_donors(donors):
+    """Save the donors as donor_0, donor_1, ... and delete the files of donors that are gone."""
+
+    old_donor_path().unlink(missing_ok=True)
 
     for index in range(len(donors)):
-        save_net(donors[index][1], _donor_path(index))
+        save_net(donors[index][1], donor_path(index))
 
     for stale in checkpoint_dir().glob("donor_*.npz"):
         if int(stale.stem.split("_")[1]) >= len(donors):
             stale.unlink()
 
+def write_history(history, rated_nets, near_misses, donors):
     def meta(nets):
         return [{GENERATION_KEY: generation, RATING_KEY: rating} for generation, _, rating in nets]
 
@@ -71,6 +58,15 @@ def save_checkpoint(history, rated_nets, near_misses, donors=()):
 
     temp_path.replace(history_path())          # swap in one step so a stop mid-save can't corrupt it
 
+def save_checkpoint(history, rated_nets, near_misses, donors=()):
+    """history: one row per generation. rated_nets / near_misses: [(generation, net, rating)],
+    oldest first. donors: [(generation, net, score vs best)], oldest first, see training.py. Also keeps
+    the model's model.npz up to date with the best net."""
+
+    save_nets(history, rated_nets, near_misses)
+    save_donors(donors)
+    write_history(history, rated_nets, near_misses, donors)
+
 def load_checkpoint():
     """Returns (history, rated_nets, near_misses, rating_basis, donors), or None if there is nothing to resume.
     Checkpoints from before near-misses, rating bases and donors existed load fine."""
@@ -80,12 +76,12 @@ def load_checkpoint():
 
     saved = json.loads(history_path().read_text())
 
-    def load(kind, entries):
+    def load_saved_nets(kind, entries):
         return [(entry[GENERATION_KEY], load_net(net_path(kind, entry[GENERATION_KEY])), entry[RATING_KEY])
                 for entry in entries]
 
     entries = saved.get(DONORS_KEY) or ([saved["donor"]] if saved.get("donor") else [])
-    paths = [_donor_path(index) if DONORS_KEY in saved else _old_donor_path() for index in range(len(entries))]
+    paths = [donor_path(index) if DONORS_KEY in saved else old_donor_path() for index in range(len(entries))]
     donors = [(entry[GENERATION_KEY], load_net(path), entry["score"]) for entry, path in zip(entries, paths)]
 
     if donors and saved.get("donor_features") != NUM_FEATURES:
@@ -93,7 +89,7 @@ def load_checkpoint():
         print(f"The inputs changed since the {len(donors)} saved donors were made, so they were dropped")
         donors = []
 
-    return (saved[HISTORY_KEY], load("net", saved[NETS_KEY]), load("miss", saved.get("near_misses", [])),
+    return (saved[HISTORY_KEY], load_saved_nets("net", saved[NETS_KEY]), load_saved_nets("miss", saved.get("near_misses", [])),
             saved.get("rating_basis", 1), donors)
 
 def clear_checkpoint():

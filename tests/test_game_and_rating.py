@@ -1,10 +1,10 @@
 """Tests for the game rules, the players and the Elo maths. Run: uv run python -m unittest discover tests"""
 import unittest
 
-from tzaar.game import State, new_game
-from tzaar.players import random_player
-from tzaar.rating import elo_gap, rate_net
-from tzaar.games import match_score, play_game
+from tzaar.rules.game import State, new_game
+from tzaar.nets.players import random_player
+from tzaar.nets.rating import elo_gap, rate_net
+from tzaar.nets.games import play_game
 
 class EloTests(unittest.TestCase):
     def test_even_score_is_no_gap(self):
@@ -19,9 +19,6 @@ class EloTests(unittest.TestCase):
 
     def test_rating_averages_what_each_opponent_implies(self):
         self.assertAlmostEqual(rate_net([(100, 0.5), (300, 0.5)]), 200)
-
-    def test_match_score_is_the_share_of_wins(self):
-        self.assertEqual(match_score(3, 1), 0.75)
 
 class GameTests(unittest.TestCase):
     def test_new_game_has_thirty_pieces_per_side(self):

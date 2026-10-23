@@ -9,9 +9,9 @@ Also starts a live dashboard at http://localhost:8002 (skip it with --no-dashboa
 import argparse
 import threading
 
-from tzaar.dashboard import start_dashboard
-from tzaar.model_store import list_models
-from tzaar.runner import run_model, run_models
+from tzaar.serving.dashboard import start_dashboard
+from tzaar.nets.model_store import list_models
+from tzaar.runs.runner import run_model, run_models
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

@@ -1,9 +1,9 @@
 """Tests for resuming training from a checkpoint and for listing the nets you can play."""
 
 from tests.helpers import TemporaryModels, save_two_nets
-from tzaar import model_store
-from tzaar.checkpoint import GENERATION_KEY, NETS_KEY, clear_checkpoint, load_checkpoint
-from tzaar.server import NetPlayers, available_nets
+from tzaar.nets import model_store
+from tzaar.learning.checkpoint import GENERATION_KEY, NETS_KEY, clear_checkpoint, load_checkpoint
+from tzaar.serving.server import NetPlayers, available_nets
 
 class CheckpointTests(TemporaryModels):
 

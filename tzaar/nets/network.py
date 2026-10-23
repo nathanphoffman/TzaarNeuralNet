@@ -1,11 +1,16 @@
 """A small neural network that scores a Tzaar position."""
 import numpy as np
 
-from .encoding import NUM_FEATURES
-from .rng import random_generator
+from tzaar.rules.encoding import NUM_FEATURES
+from tzaar.rules.rng import random_generator
 
 HIDDEN = 256       # neurons in the hidden layer for new nets; older, narrower nets are widened to this (see widened)
 SECOND_LAYER_RATE = 0.1   # the second layer learns this much slower than the rest, so it can't unsettle a tuned net
+INPUT_WEIGHT_SPREAD = 0.1     # standard deviation of the random starting weights (first layer, second layer, new neurons)
+OUTPUT_WEIGHT_SPREAD = 0.3    # ...and of the weights to the output, which start larger so the first outputs differ
+DEFAULT_EPOCHS = 15
+DEFAULT_LEARNING_RATE = 0.05
+DEFAULT_BATCH_SIZE = 64
 HIDDEN2 = 64       # neurons in the second hidden layer; older nets without one get it added (see deepened)
 
 class Network:
@@ -16,16 +21,16 @@ class Network:
     Nets without it (V is None) just use the direct path."""
 
     def __init__(self, hidden=HIDDEN):
-        self.W1 = random_generator.normal(0, 0.1, (NUM_FEATURES, hidden)).astype(np.float32)
+        self.W1 = random_generator.normal(0, INPUT_WEIGHT_SPREAD, (NUM_FEATURES, hidden)).astype(np.float32)
         self.b1 = np.zeros(hidden, dtype=np.float32)
-        self.W2 = random_generator.normal(0, 0.3, (hidden, 1)).astype(np.float32)
+        self.W2 = random_generator.normal(0, OUTPUT_WEIGHT_SPREAD, (hidden, 1)).astype(np.float32)
         self.b2 = np.zeros(1, dtype=np.float32)
         self.V = self.c = self.U = None
         self.add_second_layer(self)
 
     @staticmethod
     def add_second_layer(network, hidden2=HIDDEN2):
-        network.V = random_generator.normal(0, 0.1, (network.W1.shape[1], hidden2)).astype(np.float32)
+        network.V = random_generator.normal(0, INPUT_WEIGHT_SPREAD, (network.W1.shape[1], hidden2)).astype(np.float32)
         network.c = np.zeros(hidden2, dtype=np.float32)
         network.U = np.zeros((hidden2, 1), dtype=np.float32)
 
@@ -50,7 +55,7 @@ class Network:
         other = self.copy()
         other.W1 = np.hstack([self.W1, np.zeros((NUM_FEATURES, extra), dtype=np.float32)])
         other.b1 = np.concatenate([self.b1, np.zeros(extra, dtype=np.float32)])
-        other.W2 = np.vstack([self.W2, random_generator.normal(0, 0.1, (extra, 1)).astype(np.float32)])
+        other.W2 = np.vstack([self.W2, random_generator.normal(0, INPUT_WEIGHT_SPREAD, (extra, 1)).astype(np.float32)])
 
         if self.V is not None:
             other.V = np.vstack([self.V, np.zeros((extra, self.V.shape[1]), dtype=np.float32)])
@@ -78,7 +83,7 @@ class Network:
 
         return np.tanh(pre_activation).ravel()
 
-    def train(self, inputs, targets, epochs=15, learning_rate=0.05, batch_size=64):
+    def train(self, inputs, targets, epochs=DEFAULT_EPOCHS, learning_rate=DEFAULT_LEARNING_RATE, batch_size=DEFAULT_BATCH_SIZE):
         for _ in range(epochs):
             order = random_generator.permutation(len(inputs))
 

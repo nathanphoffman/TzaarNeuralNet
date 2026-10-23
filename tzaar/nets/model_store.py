@@ -7,10 +7,10 @@ from pathlib import Path
 
 import numpy as np
 
-from .encoding import NUM_FEATURES
-from .network import Network
+from tzaar.rules.encoding import NUM_FEATURES
+from tzaar.nets.network import Network
 
-MODELS_ROOT = Path(__file__).resolve().parent.parent / "models"
+MODELS_ROOT = Path(__file__).resolve().parent.parent.parent / "models"
 
 _current = None
 
@@ -39,18 +39,17 @@ def list_models():
 
     return sorted(folder.name for folder in MODELS_ROOT.iterdir() if folder.is_dir())
 
-def save_net(network, path=None):
-    path = path or model_path()
+def save_net(network, path):
     path.parent.mkdir(parents=True, exist_ok=True)
     second_layer = {} if network.V is None else {"V": network.V, "c": network.c, "U": network.U}
     np.savez(path, W1=network.W1, b1=network.b1, W2=network.W2, b2=network.b2, **second_layer)
 
-def load_net(path=None):
+def load_net(path):
     """Nets saved before new inputs were added have fewer rows in W1. The missing rows are filled with
     zeros, so such a net ignores the new inputs and plays exactly as it did, and can learn to use them later.
     Nets saved before the second hidden layer existed load without one."""
 
-    saved = np.load(path or model_path())
+    saved = np.load(path)
     network = Network(hidden=saved["W1"].shape[1])
     first_layer = saved["W1"]
 

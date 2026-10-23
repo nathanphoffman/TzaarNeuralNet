@@ -3,9 +3,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tzaar import model_store
-from tzaar.checkpoint import GENERATION_KEY, save_checkpoint
-from tzaar.network import Network
+from tzaar.nets import model_store
+from tzaar.learning.checkpoint import GENERATION_KEY, save_checkpoint
+from tzaar.nets.network import Network
 
 class TemporaryModels(unittest.TestCase):
     """Points the model store at an empty temporary folder for the length of each test."""

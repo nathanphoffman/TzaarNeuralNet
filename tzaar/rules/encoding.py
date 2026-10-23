@@ -13,11 +13,13 @@ Inputs, in order (797 in all):
 
 import numpy as np
 
-from .board import NUM_POINTS, RAY_TABLE
-from .game import PIECES_PER_KIND
+from tzaar.rules.board import NUM_POINTS, RAY_TABLE
+from tzaar.rules.game import NUM_KINDS, PIECES_PER_KIND
 
 NUM_FEATURES = NUM_POINTS * 6 * 2 + 1 + 6 + 6 + NUM_POINTS + 2 + 2
 CAPTURES_SCALE = 20
+NUM_SLOTS = 2 * NUM_KINDS      # piece slots: my three kinds, then theirs
+HEIGHT_SCALE = 5               # stack heights are divided by this to keep the inputs near 0 to 1
 SIGNALS_START = NUM_POINTS * 6 * 2 + 1       # inputs from here on (pieces left, danger, threat) came after the first nets
 START_COUNTS = np.tile(np.array(PIECES_PER_KIND, dtype=np.float32), 2)       # for [my 3 kinds, their 3 kinds]
 
@@ -26,7 +28,7 @@ def piece_counts(owner, kind, actor):
 
     # One row per position: how many pieces of each kind each side has (this side's three kinds, then the other's).
     return np.stack([((owner == side) & (kind == piece_kind)).sum(axis=1)
-                     for side in (actor, -actor) for piece_kind in range(3)], axis=1)
+                     for side in (actor, -actor) for piece_kind in range(NUM_KINDS)], axis=1)
 
 def captures(owner, height, attacker):
     """Returns (victims, moves): victims is (M, 60), 1 where one of the other side's stacks could be captured if
@@ -66,12 +68,12 @@ def encode_batch(owner, kind, height, actor, actor_moves_again):
 
     count = owner.shape[0]
     rows, points = np.nonzero(owner != 0)
-    channel = (kind + 3 * (owner != actor))[rows, points]       # 0-2 mine, 3-5 theirs
+    channel = (kind + NUM_KINDS * (owner != actor))[rows, points]       # 0-2 mine, 3-5 theirs
 
-    presence = np.zeros((count, 6, NUM_POINTS), dtype=np.float32)
-    heights = np.zeros((count, 6, NUM_POINTS), dtype=np.float32)
+    presence = np.zeros((count, NUM_SLOTS, NUM_POINTS), dtype=np.float32)
+    heights = np.zeros((count, NUM_SLOTS, NUM_POINTS), dtype=np.float32)
     presence[rows, channel, points] = 1
-    heights[rows, channel, points] = height[rows, points] / 5
+    heights[rows, channel, points] = height[rows, points] / HEIGHT_SCALE
 
     flag = np.asarray(actor_moves_again, dtype=np.float32).reshape(count, 1)
     counts = piece_counts(owner, kind, actor)
@@ -83,9 +85,3 @@ def encode_batch(owner, kind, height, actor, actor_moves_again):
                            (counts / START_COUNTS).astype(np.float32), (counts == 1).astype(np.float32),
                            threat, np.minimum(available / CAPTURES_SCALE, 1).astype(np.float32),
                            (available == 0).astype(np.float32)], axis=1)
-
-def encode_state(state, actor):
-    """One position, seen from `actor`'s side (usually the player who just moved)."""
-
-    return encode_batch(np.array([state.owner]), np.array([state.kind]), np.array([state.height]),
-                        actor, [state.to_move == actor])[0]
