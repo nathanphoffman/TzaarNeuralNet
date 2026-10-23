@@ -3,41 +3,53 @@
 API (all POST, JSON in and out; the browser sends the whole game state each time):
   /api/new               -> a fresh random game
   /api/move {state, move}-> your move applied
-  /api/ai   {state}      -> the net picks and plays a move
-GET /api/info            -> which generation of the net you are playing, and its rating
+  /api/ai   {state, net} -> the net {model, generation} picks and plays a move
+GET /api/info            -> the models you can play and their accepted nets, with ratings
 """
 import json
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
 from .board import POINTS
-from .checkpoint import HISTORY_PATH
+from .checkpoint import history_path
 from .game import State, new_game
-from .model_store import MODEL_PATH, load_net, save_net
+from .model_store import list_models, load_net, model_dir
 from .players import make_net_player
-from .training import NUM_GENERATIONS, train_model
 
 INDEX_HTML = Path(__file__).resolve().parent.parent / "web" / "index.html"
 PORT = 8001
 
 
-def get_net():
-    """Load the saved net, or train and save one if there isn't one yet."""
-    if MODEL_PATH.exists():
-        print("Loaded", MODEL_PATH)
-        return load_net()
-    net = train_model(NUM_GENERATIONS)
-    save_net(net)
-    return net
+def available_nets():
+    """Every model and its accepted nets, from the training histories: [{name, nets: [{generation, rating}]}],
+    each model's nets oldest first. Models with no accepted nets yet are left out."""
+    models = []
+    for name in list_models():
+        try:
+            nets = json.loads(history_path(name).read_text())["nets"]
+        except (OSError, ValueError, KeyError):
+            continue
+        if nets:
+            models.append({"name": name, "nets": [{"generation": n["generation"], "rating": round(n["rating"])}
+                                                  for n in nets]})
+    return models
 
 
-def net_info():
-    """The generation and Elo rating of the best net, from the training history (None if there isn't one)."""
-    try:
-        best = json.loads(HISTORY_PATH.read_text())["nets"][-1]
-        return {"generation": best["generation"], "rating": round(best["rating"])}
-    except (OSError, ValueError, KeyError, IndexError):
-        return None
+class NetPlayers:
+    """The players for the nets you can pick, loaded the first time they are used. The list of nets is read
+    again for each new one, so nets accepted while the server is up can be played too."""
+
+    def __init__(self):
+        self.players = {}
+
+    def get(self, name, generation):
+        if (name, generation) not in self.players:
+            if not any(m["name"] == name and any(n["generation"] == generation for n in m["nets"])
+                       for m in available_nets()):
+                raise ValueError("unknown net")
+            path = model_dir(name) / "checkpoint" / f"net_gen{generation:04d}.npz"
+            self.players[(name, generation)] = make_net_player(load_net(path))
+        return self.players[(name, generation)]
 
 
 def game_response(state, last_move=None):
@@ -45,11 +57,11 @@ def game_response(state, last_move=None):
             "legal_moves": [list(move) for move in state.legal_moves()]}
 
 
-def make_handler(net_player, info):
+def make_handler(net_players):
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
             if self.path == "/api/info":
-                return self._send_json(200, info)
+                return self._send_json(200, available_nets())
             self._send(200, "text/html", INDEX_HTML.read_bytes())
 
         def do_POST(self):
@@ -69,7 +81,8 @@ def make_handler(net_player, info):
                 if move not in state.legal_moves():
                     raise ValueError("illegal move")
             elif self.path == "/api/ai":
-                move = net_player(state)
+                net = request["net"]
+                move = net_players.get(net["model"], int(net["generation"]))(state)
             else:
                 raise ValueError("unknown path")
             state.play(move)
@@ -87,9 +100,9 @@ def make_handler(net_player, info):
 
 
 def run_server():
-    net_player = make_net_player(get_net())
-    info = net_info()
-    if info:
-        print(f"Playing generation {info['generation']} (rating {info['rating']})")
+    models = available_nets()
+    if not models:
+        raise SystemExit("No trained nets yet. Run: uv run train.py")
+    print("Playable:", ", ".join(f"{m['name']} ({len(m['nets'])} nets)" for m in models))
     print(f"Open http://localhost:{PORT}")
-    HTTPServer(("", PORT), make_handler(net_player, info)).serve_forever()
+    HTTPServer(("", PORT), make_handler(NetPlayers())).serve_forever()

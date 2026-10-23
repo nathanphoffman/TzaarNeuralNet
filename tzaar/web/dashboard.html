@@ -122,6 +122,7 @@
 <main>
   <header>
     <h1>Tzaar training</h1>
+    <p class="sub"><label>Model <select id="model"></select></label></p>
     <p class="sub" id="status-line">Connecting...</p>
     <p class="sub" id="conn" hidden>Can't reach the training process. It may have finished or been stopped.</p>
   </header>
@@ -331,18 +332,38 @@ function projectionForDomain(rows) {
 }
 
 /* ---------- polling ---------- */
+let model = null, pollTimer = null;
 async function poll() {
+  const asked = model;
   let wait = 1500;
   try {
-    const r = await fetch('/api/progress', {cache: 'no-store'});
-    data = await r.json(); fetchedAt = Date.now();
+    const r = await fetch('/api/progress?model=' + encodeURIComponent(asked), {cache: 'no-store'});
+    const fresh = await r.json();
+    if (asked !== model) return;          // another model was picked while this was loading
+    data = fresh; fetchedAt = Date.now();
     $('conn').hidden = true;
     render();
     if (!data.running) return;
   } catch (e) {
+    if (asked !== model) return;
     $('conn').hidden = false; wait = 3000;
   }
-  setTimeout(poll, wait);
+  pollTimer = setTimeout(poll, wait);
+}
+function pickModel(name) {
+  model = name; data = null;
+  try { localStorage.setItem('model', name); } catch (e) {}
+  clearTimeout(pollTimer);
+  poll();
+}
+async function start() {
+  const names = await (await fetch('/api/models')).json();
+  names.forEach(n => $('model').appendChild(new Option(n, n)));
+  let saved = null;
+  try { saved = localStorage.getItem('model'); } catch (e) {}
+  $('model').value = names.includes(saved) ? saved : names[0];
+  $('model').onchange = e => pickModel(e.target.value);
+  pickModel($('model').value);
 }
 setInterval(() => { if (data && data.running) showElapsed(); }, 1000);
 function showElapsed() {
@@ -606,7 +627,7 @@ $('proj-n').addEventListener('input', e => {
 let resizeTimer;
 window.addEventListener('load', () => data && drawCharts());
 window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => data && drawCharts(), 100); });
-poll();
+start();
 </script>
 </body>
 </html>
