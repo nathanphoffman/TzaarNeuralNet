@@ -102,7 +102,7 @@
   .tip .row span.name { color: var(--ink-2); display: flex; align-items: center; gap: 6px; }
   .tip .row b { font-weight: 600; color: var(--ink); }
   .tip .key { display: inline-block; width: 12px; height: 3px; border-radius: 2px; }
-  .controls label { display: inline-flex; align-items: center; gap: 6px; }
+  .controls label, .controls .key-item { display: inline-flex; align-items: center; gap: 6px; }
   .controls { display: flex; flex-wrap: wrap; gap: 6px 20px; margin-top: 8px; font-size: 14px; color: var(--ink-2); }
   .controls input[type=number] { width: 70px; font: inherit; padding: 2px 6px; color: var(--ink); background: var(--surface);
     border: 1px solid var(--axis); border-radius: 6px; }
@@ -162,6 +162,7 @@
       <label><input type="checkbox" id="proj-sat" checked>
         <svg width="26" height="8" aria-hidden="true"><line x1="1" y1="4" x2="25" y2="4" stroke="var(--series-1)" stroke-width="2" stroke-dasharray="1 5" stroke-linecap="round" opacity="0.9"/></svg>
         Levelling-off projection</label>
+      <span class="key-item"><svg width="26" height="8" aria-hidden="true"><line x1="1" y1="4" x2="25" y2="4" stroke="var(--good)" stroke-width="1.5" stroke-dasharray="1 4" stroke-linecap="round"/></svg>New net accepted</span>
       <label>for the next <input type="number" id="proj-n" min="1" max="1000" value="25"> generations</label>
     </div>
     <div class="chart" id="chart-rating"><div class="tip"></div></div>
@@ -194,7 +195,7 @@ const pct = v => v == null ? '–' : Math.round(v * 100) + '%';
 // One entry per chart. `domain(rows)` gives the y range and tick step; `format` writes values.
 const CHARTS = [
   {el: 'chart-rating', series: [{key: 'rating', label: 'Rating (Elo)', color: 'var(--series-1)'}],
-   domain: rows => ratingDomain(rows, projectionForDomain(rows)), project: true,
+   domain: rows => ratingDomain(rows, projectionForDomain(rows)), project: true, markAccepted: true,
    format: v => String(Math.round(v)), activeGen: null},
   {el: 'chart-win', series: [{key: 'vs_random', label: 'vs random', color: 'var(--series-2)'},
                              {key: 'vs_best', label: 'vs best so far', color: 'var(--series-3)'}],
@@ -406,7 +407,7 @@ function renderTable() {
     else {
       const icon = html('span', {className: r.accepted ? 'up' : 'down'}, r.accepted ? '✓ ' : '✕ ');
       const retest = r.retest == null ? '' : ` after re-test ${(r.retest * 100).toFixed(1)}%`;
-      result.append(icon, document.createTextNode((r.accepted ? 'Accepted' : r.near_miss ? 'Rejected (near miss)' : 'Rejected') + retest));
+      result.append(icon, document.createTextNode((r.accepted ? 'Accepted' : r.demoted ? 'Demoted to near miss' : r.near_miss ? 'Rejected (near miss)' : 'Rejected') + retest));
     }
     tr.append(result); body.append(tr);
   }
@@ -489,6 +490,13 @@ function drawChart(cfg) {
 
   if (!rows.length)
     svg.append(el('text', {x: (m.l + W - m.r) / 2, y: H / 2, 'text-anchor': 'middle', 'font-size': 13}, {fill: 'var(--ink-2)'}, 'Waiting for the first results...'));
+
+  // green dotted vertical lines where a new net was accepted
+  if (cfg.markAccepted)
+    for (const r of rows)
+      if (r.accepted && r.generation > 0)
+        svg.append(el('line', {x1: x(r.generation), x2: x(r.generation), y1: m.t, y2: H - m.b},
+                      {stroke: 'var(--good)', strokeWidth: 1.5, strokeDasharray: '1 4', strokeLinecap: 'round', opacity: 0.85}));
 
   const crosshair = el('line', {y1: m.t, y2: H - m.b}, {stroke: 'var(--axis)', strokeWidth: 1, display: 'none'});
   svg.append(crosshair);

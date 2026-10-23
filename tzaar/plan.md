@@ -27,6 +27,7 @@ Margins are slim on purpose. A net that is only equal to the best does little ha
 - **Trigger:** the net is rejected, still beats random at least 90%, and either (a) its rating clears the bar and it won at least 48% vs the best net, or (b) it won at least 52% vs the best net but its rating is short by up to 20 Elo.
 - **Re-test:** 1,600 games against the best net. Only this result decides; the first 400 games are not pooled in (that would let lucky nets in).
 - **Outcome:** 52% or more accepts, 50% to 52% rejects but keeps it as a near miss, under 50% rejects.
+- **Rating after an accept:** a net accepted after a re-test is rated as the old best's rating plus the Elo gap from the re-test win rate (not the noisy three-opponent average), so the best net's rating can't drift down.
 - **Cost:** about a minute, and only for the few generations that qualify.
 - Settings: `RETEST_GAMES`, `RETEST_MIN_SCORE`, `RETEST_RATING_SLACK` in `training.py`.
 
