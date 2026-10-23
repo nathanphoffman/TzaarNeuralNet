@@ -31,6 +31,11 @@ class Progress:
             self.steps_started += 1
             self.status = status
 
+    def set_status(self, status):
+        """Change the status text without counting a new step."""
+        with self._lock:
+            self.status = status
+
     def add_generation(self, row):
         with self._lock:
             self.generations.append(row)

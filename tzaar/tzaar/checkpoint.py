@@ -1,4 +1,4 @@
-"""Saving and resuming training: every accepted net plus the history of every generation.
+"""Saving and resuming training: every accepted net, the near-miss nets, and the history of every generation.
 
 After each generation the files in models/checkpoint/ are updated, so you can stop
 training at any time and the next run continues from the last finished generation.
@@ -10,34 +10,48 @@ from .model_store import MODELS_DIR, load_net, save_net
 
 CHECKPOINT_DIR = MODELS_DIR / "checkpoint"
 HISTORY_PATH = CHECKPOINT_DIR / "history.json"
+RATING_BASIS = 2          # 1 = old ratings (the random player was averaged in), 2 = head-to-head games only
 
 
-def _net_path(generation):
-    return CHECKPOINT_DIR / f"net_gen{generation:04d}.npz"
+def _net_path(kind, generation):
+    """kind is "net" (accepted) or "miss" (a near-miss that was rejected but kept as an opponent)."""
+    return CHECKPOINT_DIR / f"{kind}_gen{generation:04d}.npz"
 
 
-def save_checkpoint(history, rated_nets):
-    """history: one row per generation. rated_nets: [(generation, net, rating)], oldest first.
-    Also keeps models/model.npz up to date with the best net."""
+def save_checkpoint(history, rated_nets, near_misses):
+    """history: one row per generation. rated_nets / near_misses: [(generation, net, rating)],
+    oldest first. Also keeps models/model.npz up to date with the best net."""
     CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
-    for generation, net, _ in rated_nets:
-        if net is rated_nets[-1][1] or not _net_path(generation).exists():
-            save_net(net, _net_path(generation))
+    current = history[-1]["generation"]
+    for kind, nets in (("net", rated_nets), ("miss", near_misses)):
+        for generation, net, _ in nets:
+            path = _net_path(kind, generation)
+            # always rewrite the current generation's file: a stop mid-save could have left a stale one
+            if generation == current or not path.exists():
+                save_net(net, path)
     save_net(rated_nets[-1][1])
-    nets = [{"generation": generation, "rating": rating} for generation, _, rating in rated_nets]
+
+    def meta(nets):
+        return [{"generation": generation, "rating": rating} for generation, _, rating in nets]
+
     temp_path = HISTORY_PATH.with_suffix(".tmp")
-    temp_path.write_text(json.dumps({"history": history, "nets": nets}))
+    temp_path.write_text(json.dumps({"rating_basis": RATING_BASIS, "history": history,
+                                     "nets": meta(rated_nets), "near_misses": meta(near_misses)}))
     temp_path.replace(HISTORY_PATH)          # swap in one step so a stop mid-save can't corrupt it
 
 
 def load_checkpoint():
-    """Returns (history, rated_nets), or None if there is nothing to resume."""
+    """Returns (history, rated_nets, near_misses, rating_basis), or None if there is nothing to resume.
+    Checkpoints from before near-misses and rating bases existed load fine."""
     if not HISTORY_PATH.exists():
         return None
     saved = json.loads(HISTORY_PATH.read_text())
-    rated_nets = [(n["generation"], load_net(_net_path(n["generation"])), n["rating"])
-                  for n in saved["nets"]]
-    return saved["history"], rated_nets
+
+    def load(kind, entries):
+        return [(n["generation"], load_net(_net_path(kind, n["generation"])), n["rating"]) for n in entries]
+
+    return (saved["history"], load("net", saved["nets"]), load("miss", saved.get("near_misses", [])),
+            saved.get("rating_basis", 1))
 
 
 def clear_checkpoint():

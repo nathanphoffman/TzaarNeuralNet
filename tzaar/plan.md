@@ -1,6 +1,6 @@
 # Plan: better acceptance rule for new nets
 
-Status: **not built yet.** Training is working fine at the moment (rating passed 600), so this is parked until progress stalls.
+Status: **built** (acceptance rule, head-to-head-only rating, one-time re-rating of the best net, and near-miss nets as self-play opponents). The "Later ideas" section at the bottom is still to do.
 
 ## The problem
 
@@ -21,6 +21,14 @@ A new net is accepted only if **both** hold:
 Optional safety floor instead of the old vs random comparison: still above about 90% vs random.
 
 Margins are slim on purpose. A net that is only equal to the best does little harm, while rejecting a real improvement loses progress.
+
+## Re-test of borderline nets (also built)
+
+- **Trigger:** the net is rejected, still beats random at least 90%, and either (a) its rating clears the bar and it won at least 48% vs the best net, or (b) it won at least 52% vs the best net but its rating is short by up to 20 Elo.
+- **Re-test:** 1,600 games against the best net. Only this result decides; the first 400 games are not pooled in (that would let lucky nets in).
+- **Outcome:** 52% or more accepts, 50% to 52% rejects but keeps it as a near miss, under 50% rejects.
+- **Cost:** about a minute, and only for the few generations that qualify.
+- Settings: `RETEST_GAMES`, `RETEST_MIN_SCORE`, `RETEST_RATING_SLACK` in `training.py`.
 
 ## Things to handle
 
