@@ -11,7 +11,7 @@ import numpy as np
 from .checkpoint import RATING_BASIS, clear_checkpoint, load_checkpoint, save_checkpoint
 from .encoding import SIGNALS_START
 from .games import generate_training_data, match_score, play_match
-from .network import Net
+from .network import HIDDEN, Net
 from .players import make_net_player, random_player
 from .progress import progress
 from .rating import elo_gap, rate_net
@@ -241,6 +241,13 @@ def train_model(generations=None, fresh=False):
         donors = []
     else:
         history, rated_nets, near_misses, basis, donors = checkpoint
+        # Widen the best net (and the donors) to the current hidden size. Nothing else changes: a widened net
+        # plays exactly like the original, and older narrower nets stay as they are and still serve as opponents.
+        generation, best, rating = rated_nets[-1]
+        if best.W1.shape[1] < HIDDEN:
+            rated_nets[-1] = (generation, best.widened(), rating)
+            print(f"Widened the best net (gen {generation}) from {best.W1.shape[1]} to {HIDDEN} hidden neurons")
+        donors = [(g, net.widened(), score) for g, net, score in donors]
         last = history[-1]["generation"]
         print(f"Resuming after generation {last}. Best net so far: generation {rated_nets[-1][0]}, "
               f"rating {rated_nets[-1][2]:.0f}; {len(near_misses)} near-miss nets saved")
