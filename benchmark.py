@@ -22,6 +22,7 @@ from tzaar.nets import games as game_play
 from tzaar.nets.games import win_rate
 from tzaar.nets.model_store import MODELS_ROOT, list_models, load_net
 from tzaar.nets.players import make_net_player, random_player
+from tzaar.nets.search import make_search_player
 from tzaar.nets.rating import ELO_SCALE
 
 BASELINES = Path(__file__).resolve().parent / "baselines"
@@ -30,8 +31,9 @@ DEFAULT_WORKERS = 2
 FIT_STEPS = 2000
 FIT_STEP_SIZE = 20.0       # rating points moved per step, scaled by how far off the results are
 
-def find_players():
-    """(name, player) for random, every baseline net, and every model's best net."""
+def find_players(search_turns=0, keep=5):
+    """(name, player) for random, every baseline net, and every model's best net. With search_turns, every model's
+    best net also plays again with that many turns of lookahead (keeping its `keep` best moves at each step)."""
 
     players = [("random", random_player)]
 
@@ -42,7 +44,12 @@ def find_players():
         best = MODELS_ROOT / name / "model.npz"
 
         if best.exists():
-            players.append((f"{name} best", make_net_player(load_net(best))))
+            network = load_net(best)
+            players.append((f"{name} best", make_net_player(network)))
+
+            if search_turns:
+                players.append((f"{name} best + {search_turns}-turn search (keep {keep})",
+                                make_search_player(network, search_turns, keep)))
 
     return players
 
@@ -80,11 +87,13 @@ def main():
     parser = argparse.ArgumentParser(description="Round-robin rating of the baselines and every model's best net.")
     parser.add_argument("--games", type=int, default=DEFAULT_GAMES, help="games per pair")
     parser.add_argument("--workers", type=int, default=DEFAULT_WORKERS, help="processes playing games at once")
+    parser.add_argument("--search-turns", type=int, default=0, help="also rate each model's best net with this many turns of lookahead")
+    parser.add_argument("--keep", type=int, default=5, help="moves tried at each step of the search")
     parser.add_argument("--output", default="benchmark_results.json")
     args = parser.parse_args()
 
     game_play.WORKERS = args.workers
-    players = find_players()
+    players = find_players(args.search_turns, args.keep)
     names = [name for name, _ in players]
     print(f"{len(players)} players, {args.games} games per pair")
     results = run_tournament(players, args.games)
