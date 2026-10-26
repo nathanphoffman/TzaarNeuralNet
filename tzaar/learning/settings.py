@@ -22,6 +22,8 @@ WARM_START_ELO_PER_EPOCH = 100  # ...one fewer for every this many Elo, down to 
 WARM_START_LEARNING_RATE = 0.02
 OPPONENTS_BACK = 3            # a new net is rated against this many of the latest accepted nets
 SELF_PLAY_EPSILON = 0.2       # share of random moves in self-play, for variety
+SELF_PLAY_SEARCH_TURNS = 0    # turns of lookahead for the best net in self-play (0 = none, it just plays by the net)...
+SELF_PLAY_SEARCH_KEEP = 3     # ...trying this many moves at each step. Older nets it plays against never search.
 OLDER_NET_WEIGHT = 0.5        # in self-play, each net one step older is this much less likely to be the opponent
 
 # How many recent batches of games a new net trains on. Games played by an older best net no longer match how the

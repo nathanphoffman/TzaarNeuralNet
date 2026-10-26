@@ -3,6 +3,7 @@
 A training process works on one model: call use_model(name) once at the start and everything that
 saves or loads "the model" (checkpoint.py, save_net, load_net) then uses that model's folder."""
 
+import os
 from pathlib import Path
 
 import numpy as np
@@ -10,7 +11,7 @@ import numpy as np
 from tzaar.rules.encoding import NUM_FEATURES
 from tzaar.nets.network import Network
 
-MODELS_ROOT = Path(__file__).resolve().parent.parent.parent / "models"
+MODELS_ROOT = Path(os.environ.get("TZAAR_MODELS_ROOT") or Path(__file__).resolve().parent.parent.parent / "models")   # the env var lets an experiment run on a copy
 
 _current = None
 

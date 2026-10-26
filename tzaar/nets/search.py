@@ -5,6 +5,7 @@ import functools
 import numpy as np
 
 from tzaar.nets.players import score_moves
+from tzaar.rules.rng import random_generator
 
 def _value(network, state, turns_left, keep, side):
     """How good `state` is for `side`: the best result for `side` when it is to move, the worst when the opponent is.
@@ -27,11 +28,16 @@ def _value(network, state, turns_left, keep, side):
 
     return max(results) if mover == side else min(results)
 
-def search_move(network, turns, keep, state):
+def search_move(network, turns, keep, state, epsilon=0.0):
     """The move with the best worst case, looking `turns` whole turns ahead and trying only the `keep` best-scoring
-    moves at every step. With turns=1 on a one-action turn this is the same as pick_move with no exploration."""
+    moves at every step. `epsilon` is the chance of playing a random move instead (exploration).
+    With turns=1 on a one-action turn and no exploration this is the same as pick_move."""
 
     moves, side = state.legal_moves(), state.to_move
+
+    if random_generator.random() < epsilon:
+        return moves[random_generator.integers(len(moves))]
+
     scores = score_moves(network, state, moves)
     best_move, best_value = None, -np.inf
 
@@ -50,7 +56,7 @@ def search_move(network, turns, keep, state):
 
     return best_move
 
-def make_search_player(network, turns=2, keep=5):
+def make_search_player(network, turns=2, keep=5, epsilon=0.0):
     """A player (a function from a state to a move) that looks `turns` turns ahead."""
 
-    return functools.partial(search_move, network, turns, keep)
+    return functools.partial(search_move, network, turns, keep, epsilon=epsilon)

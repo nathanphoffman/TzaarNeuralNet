@@ -5,6 +5,7 @@ import numpy as np
 
 from tzaar.learning import settings
 from tzaar.nets.players import make_net_player
+from tzaar.nets.search import make_search_player
 from tzaar.rules.encoding import SIGNALS_START
 
 def epochs_for(rating):
@@ -31,7 +32,7 @@ def is_borderline(score_vs_best, rating, best_rating, score_vs_random):
 
 def self_play_opponents(rated_nets, near_misses):
     """The best net plays each self-play game against a net drawn from the best net itself, the older
-    accepted nets, and the near-miss nets. The best net is the most likely, then the others newest
+    accepted nets, and the near-miss nets (the best net looks ahead if SELF_PLAY_SEARCH_TURNS is set). The best net is the most likely, then the others newest
     first, each step back less likely, so really old nets only turn up now and then.
     Returns (the best net as an explorer, opponent players, their probabilities, labels)."""
 
@@ -43,6 +44,11 @@ def self_play_opponents(rated_nets, near_misses):
     entries = [(best_generation, best_net, False)] + others
     weights = np.array([settings.OLDER_NET_WEIGHT ** steps_back for steps_back in range(len(entries))])
     players = [make_net_player(network, epsilon=settings.SELF_PLAY_EPSILON) for _, network, _ in entries]
+
+    if settings.SELF_PLAY_SEARCH_TURNS:
+        players[0] = make_search_player(best_net, settings.SELF_PLAY_SEARCH_TURNS, settings.SELF_PLAY_SEARCH_KEEP,
+                                        epsilon=settings.SELF_PLAY_EPSILON)
+
     labels = [f"gen {generation}{'*' if near else ''}" for generation, _, near in entries]
 
     return players[0], players, weights / weights.sum(), labels
