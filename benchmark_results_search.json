@@ -1,0 +1,348 @@
+{
+  "games_per_pair": 200,
+  "ratings": {
+    "random": 0.0,
+    "baseline evo1_gen0000": 363.1,
+    "baseline evo1_gen0258": 689.6,
+    "baseline evo1_gen0432": 884.2,
+    "baseline evo2_gen0007": 497.5,
+    "baseline evo2_gen0089": 760.4,
+    "baseline evo2_gen0253": 823.9,
+    "evolution-1 best": 882.4,
+    "evolution-1 best + 2-turn search (keep 3)": 1128.6,
+    "evolution-2 best": 805.9,
+    "evolution-2 best + 2-turn search (keep 3)": 964.2
+  },
+  "results": [
+    {
+      "a": "random",
+      "b": "baseline evo1_gen0000",
+      "a_win_rate": 0.09,
+      "games": 200
+    },
+    {
+      "a": "random",
+      "b": "baseline evo1_gen0258",
+      "a_win_rate": 0.01,
+      "games": 200
+    },
+    {
+      "a": "random",
+      "b": "baseline evo1_gen0432",
+      "a_win_rate": 0.01,
+      "games": 200
+    },
+    {
+      "a": "random",
+      "b": "baseline evo2_gen0007",
+      "a_win_rate": 0.04,
+      "games": 200
+    },
+    {
+      "a": "random",
+      "b": "baseline evo2_gen0089",
+      "a_win_rate": 0.01,
+      "games": 200
+    },
+    {
+      "a": "random",
+      "b": "baseline evo2_gen0253",
+      "a_win_rate": 0.025,
+      "games": 200
+    },
+    {
+      "a": "random",
+      "b": "evolution-1 best",
+      "a_win_rate": 0.005,
+      "games": 200
+    },
+    {
+      "a": "random",
+      "b": "evolution-1 best + 2-turn search (keep 3)",
+      "a_win_rate": 0.005,
+      "games": 200
+    },
+    {
+      "a": "random",
+      "b": "evolution-2 best",
+      "a_win_rate": 0.005,
+      "games": 200
+    },
+    {
+      "a": "random",
+      "b": "evolution-2 best + 2-turn search (keep 3)",
+      "a_win_rate": 0.005,
+      "games": 200
+    },
+    {
+      "a": "baseline evo1_gen0000",
+      "b": "baseline evo1_gen0258",
+      "a_win_rate": 0.135,
+      "games": 200
+    },
+    {
+      "a": "baseline evo1_gen0000",
+      "b": "baseline evo1_gen0432",
+      "a_win_rate": 0.06,
+      "games": 200
+    },
+    {
+      "a": "baseline evo1_gen0000",
+      "b": "baseline evo2_gen0007",
+      "a_win_rate": 0.3,
+      "games": 200
+    },
+    {
+      "a": "baseline evo1_gen0000",
+      "b": "baseline evo2_gen0089",
+      "a_win_rate": 0.06,
+      "games": 200
+    },
+    {
+      "a": "baseline evo1_gen0000",
+      "b": "baseline evo2_gen0253",
+      "a_win_rate": 0.07,
+      "games": 200
+    },
+    {
+      "a": "baseline evo1_gen0000",
+      "b": "evolution-1 best",
+      "a_win_rate": 0.035,
+      "games": 200
+    },
+    {
+      "a": "baseline evo1_gen0000",
+      "b": "evolution-1 best + 2-turn search (keep 3)",
+      "a_win_rate": 0.01,
+      "games": 200
+    },
+    {
+      "a": "baseline evo1_gen0000",
+      "b": "evolution-2 best",
+      "a_win_rate": 0.06,
+      "games": 200
+    },
+    {
+      "a": "baseline evo1_gen0000",
+      "b": "evolution-2 best + 2-turn search (keep 3)",
+      "a_win_rate": 0.05,
+      "games": 200
+    },
+    {
+      "a": "baseline evo1_gen0258",
+      "b": "baseline evo1_gen0432",
+      "a_win_rate": 0.255,
+      "games": 200
+    },
+    {
+      "a": "baseline evo1_gen0258",
+      "b": "baseline evo2_gen0007",
+      "a_win_rate": 0.77,
+      "games": 200
+    },
+    {
+      "a": "baseline evo1_gen0258",
+      "b": "baseline evo2_gen0089",
+      "a_win_rate": 0.355,
+      "games": 200
+    },
+    {
+      "a": "baseline evo1_gen0258",
+      "b": "baseline evo2_gen0253",
+      "a_win_rate": 0.305,
+      "games": 200
+    },
+    {
+      "a": "baseline evo1_gen0258",
+      "b": "evolution-1 best",
+      "a_win_rate": 0.285,
+      "games": 200
+    },
+    {
+      "a": "baseline evo1_gen0258",
+      "b": "evolution-1 best + 2-turn search (keep 3)",
+      "a_win_rate": 0.1,
+      "games": 200
+    },
+    {
+      "a": "baseline evo1_gen0258",
+      "b": "evolution-2 best",
+      "a_win_rate": 0.29,
+      "games": 200
+    },
+    {
+      "a": "baseline evo1_gen0258",
+      "b": "evolution-2 best + 2-turn search (keep 3)",
+      "a_win_rate": 0.175,
+      "games": 200
+    },
+    {
+      "a": "baseline evo1_gen0432",
+      "b": "baseline evo2_gen0007",
+      "a_win_rate": 0.885,
+      "games": 200
+    },
+    {
+      "a": "baseline evo1_gen0432",
+      "b": "baseline evo2_gen0089",
+      "a_win_rate": 0.72,
+      "games": 200
+    },
+    {
+      "a": "baseline evo1_gen0432",
+      "b": "baseline evo2_gen0253",
+      "a_win_rate": 0.59,
+      "games": 200
+    },
+    {
+      "a": "baseline evo1_gen0432",
+      "b": "evolution-1 best",
+      "a_win_rate": 0.485,
+      "games": 200
+    },
+    {
+      "a": "baseline evo1_gen0432",
+      "b": "evolution-1 best + 2-turn search (keep 3)",
+      "a_win_rate": 0.15,
+      "games": 200
+    },
+    {
+      "a": "baseline evo1_gen0432",
+      "b": "evolution-2 best",
+      "a_win_rate": 0.665,
+      "games": 200
+    },
+    {
+      "a": "baseline evo1_gen0432",
+      "b": "evolution-2 best + 2-turn search (keep 3)",
+      "a_win_rate": 0.395,
+      "games": 200
+    },
+    {
+      "a": "baseline evo2_gen0007",
+      "b": "baseline evo2_gen0089",
+      "a_win_rate": 0.165,
+      "games": 200
+    },
+    {
+      "a": "baseline evo2_gen0007",
+      "b": "baseline evo2_gen0253",
+      "a_win_rate": 0.11,
+      "games": 200
+    },
+    {
+      "a": "baseline evo2_gen0007",
+      "b": "evolution-1 best",
+      "a_win_rate": 0.14,
+      "games": 200
+    },
+    {
+      "a": "baseline evo2_gen0007",
+      "b": "evolution-1 best + 2-turn search (keep 3)",
+      "a_win_rate": 0.015,
+      "games": 200
+    },
+    {
+      "a": "baseline evo2_gen0007",
+      "b": "evolution-2 best",
+      "a_win_rate": 0.11,
+      "games": 200
+    },
+    {
+      "a": "baseline evo2_gen0007",
+      "b": "evolution-2 best + 2-turn search (keep 3)",
+      "a_win_rate": 0.065,
+      "games": 200
+    },
+    {
+      "a": "baseline evo2_gen0089",
+      "b": "baseline evo2_gen0253",
+      "a_win_rate": 0.36,
+      "games": 200
+    },
+    {
+      "a": "baseline evo2_gen0089",
+      "b": "evolution-1 best",
+      "a_win_rate": 0.395,
+      "games": 200
+    },
+    {
+      "a": "baseline evo2_gen0089",
+      "b": "evolution-1 best + 2-turn search (keep 3)",
+      "a_win_rate": 0.1,
+      "games": 200
+    },
+    {
+      "a": "baseline evo2_gen0089",
+      "b": "evolution-2 best",
+      "a_win_rate": 0.4,
+      "games": 200
+    },
+    {
+      "a": "baseline evo2_gen0089",
+      "b": "evolution-2 best + 2-turn search (keep 3)",
+      "a_win_rate": 0.22,
+      "games": 200
+    },
+    {
+      "a": "baseline evo2_gen0253",
+      "b": "evolution-1 best",
+      "a_win_rate": 0.395,
+      "games": 200
+    },
+    {
+      "a": "baseline evo2_gen0253",
+      "b": "evolution-1 best + 2-turn search (keep 3)",
+      "a_win_rate": 0.145,
+      "games": 200
+    },
+    {
+      "a": "baseline evo2_gen0253",
+      "b": "evolution-2 best",
+      "a_win_rate": 0.6,
+      "games": 200
+    },
+    {
+      "a": "baseline evo2_gen0253",
+      "b": "evolution-2 best + 2-turn search (keep 3)",
+      "a_win_rate": 0.205,
+      "games": 200
+    },
+    {
+      "a": "evolution-1 best",
+      "b": "evolution-1 best + 2-turn search (keep 3)",
+      "a_win_rate": 0.2,
+      "games": 200
+    },
+    {
+      "a": "evolution-1 best",
+      "b": "evolution-2 best",
+      "a_win_rate": 0.595,
+      "games": 200
+    },
+    {
+      "a": "evolution-1 best",
+      "b": "evolution-2 best + 2-turn search (keep 3)",
+      "a_win_rate": 0.49,
+      "games": 200
+    },
+    {
+      "a": "evolution-1 best + 2-turn search (keep 3)",
+      "b": "evolution-2 best",
+      "a_win_rate": 0.82,
+      "games": 200
+    },
+    {
+      "a": "evolution-1 best + 2-turn search (keep 3)",
+      "b": "evolution-2 best + 2-turn search (keep 3)",
+      "a_win_rate": 0.75,
+      "games": 200
+    },
+    {
+      "a": "evolution-2 best",
+      "b": "evolution-2 best + 2-turn search (keep 3)",
+      "a_win_rate": 0.225,
+      "games": 200
+    }
+  ]
+}
