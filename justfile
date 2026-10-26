@@ -15,3 +15,7 @@ play:
 # Run the tests (they use a temporary models folder, never the real one)
 test:
     uv run python -m unittest discover tests
+
+# Rate the baseline nets and every model's best net against each other (e.g. `just benchmark --games 200`)
+benchmark *args:
+    uv run benchmark.py {{args}}
