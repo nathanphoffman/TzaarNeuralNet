@@ -11,6 +11,7 @@
 <label>Play against
   <select id="net"></select>
 </label>
+<label><input type="checkbox" id="search"> Look ahead (stronger, a bit slower)</label>
 <div class="legend" id="net-info"></div>
 <label>Play as
   <select id="side"><option value="1">White (moves first)</option><option value="-1">Black</option></select>
@@ -42,15 +43,16 @@ fetch('/api/info').then(r => r.json()).then(models => {
     netSelect.appendChild(group);
   });
   netSelect.onchange = newGame;
+  document.getElementById('search').onchange = newGame;
   newGame();
 });
 function chosenNet() {
   const [model, generation] = netSelect.value.split('|');
-  return {model, generation: Number(generation)};
+  return {model, generation: Number(generation), search: document.getElementById('search').checked};
 }
 function netName() {
   const net = chosenNet();
-  return `${net.model} gen ${net.generation}`;
+  return `${net.model} gen ${net.generation}${net.search ? ' with lookahead' : ''}`;
 }
 
 async function api(path, body) {
@@ -66,7 +68,7 @@ async function newGame() {
   human = Number(document.getElementById('side').value); lastMove = null;
   const rating = netSelect.selectedOptions[0].dataset.rating;
   document.getElementById('net-info').textContent =
-    `You are playing ${netName()} (rating ${rating} Elo; a random player is 0)`;
+    `You are playing ${netName()} (rating ${rating} Elo without lookahead; a random player is 0)`;
   apply(await api('/api/new', {}));
   await aiTurns();
 }

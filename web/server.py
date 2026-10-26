@@ -3,7 +3,7 @@
 API (all POST, JSON in and out; the browser sends the whole game state each time):
   /api/new               -> a fresh random game
   /api/move {state, move}-> your move applied
-  /api/ai   {state, net} -> the net {model, generation} picks and plays a move
+  /api/ai   {state, net} -> the net {model, generation, search} picks and plays a move (search = look ahead)
 GET /api/info            -> the models you can play and their accepted nets, with ratings
 """
 
@@ -17,10 +17,13 @@ from tzaar.learning.checkpoint_paths import history_path, net_path
 from tzaar.rules.game import State, new_game
 from tzaar.nets.model_store import list_models, load_net
 from tzaar.nets.players import make_net_player
+from tzaar.nets.search import make_search_player
 from web.web_response import HTML_TYPE, HTTP_BAD_REQUEST, send, send_json
 
 INDEX_HTML = Path(__file__).resolve().parent / "pages" / "index.html"
 PORT = 8001
+SEARCH_TURNS = 2        # whole turns the net looks ahead when "look ahead" is on
+SEARCH_KEEP = 3         # moves it tries at each step of the search
 
 def accepted_nets(name):
     """A model's accepted nets as [{generation, rating}], oldest first (none if it has not been trained yet)."""
@@ -47,16 +50,20 @@ class NetPlayers:
     def __init__(self):
         self.players = {}
 
-    def player_for(self, name, generation):
-        """The player for one accepted net of a model; a net that is not in the model's history is refused."""
+    def player_for(self, name, generation, search=False):
+        """The player for one accepted net of a model, with lookahead if `search`;
+        a net that is not in the model's history is refused."""
 
-        if (name, generation) not in self.players:
+        key = (name, generation, search)
+
+        if key not in self.players:
             if generation not in [net[GENERATION_KEY] for net in accepted_nets(name)]:
                 raise ValueError("unknown net")
 
-            self.players[(name, generation)] = make_net_player(load_net(net_path("net", generation, name)))
+            network = load_net(net_path("net", generation, name))
+            self.players[key] = make_search_player(network, SEARCH_TURNS, SEARCH_KEEP) if search else make_net_player(network)
 
-        return self.players[(name, generation)]
+        return self.players[key]
 
 def game_response(state, last_move=None):
     return {"state": state.to_dict(), "points": POINTS, "last_move": last_move,
@@ -95,7 +102,7 @@ class Handler(BaseHTTPRequestHandler):
                 raise ValueError("illegal move")
         elif self.path == "/api/ai":
             network = request["net"]
-            move = self.net_players.player_for(network["model"], int(network["generation"]))(state)
+            move = self.net_players.player_for(network["model"], int(network["generation"]), bool(network.get("search")))(state)
         else:
             raise ValueError("unknown path")
 
