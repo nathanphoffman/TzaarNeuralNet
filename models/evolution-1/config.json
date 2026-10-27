@@ -1,1 +1,4 @@
-{}
+{
+ "label": "Plain self-play (baseline)",
+ "description": "The original recipe: the net plays itself and older nets with no lookahead, and every position is labeled with who won. Our strongest plain net (881 on the benchmark). Everything else is compared to it."
+}

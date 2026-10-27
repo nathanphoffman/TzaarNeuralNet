@@ -134,6 +134,11 @@
   <header>
     <h1>Tzaar training</h1>
     <p class="sub"><label>Model <select id="model"></select></label></p>
+    <div class="sub" id="info" hidden>
+      <strong id="info-label"></strong>
+      <div id="info-description"></div>
+      <div id="info-settings"></div>
+    </div>
     <p class="sub train">
       <label>Generations <input type="number" id="gens" min="1" placeholder="until stopped"></label>
       <label>Workers <input type="number" id="workers" min="1" max="64" placeholder="from config"></label>
@@ -419,6 +424,17 @@ function setBar(fillId, meterId, fraction) {
   $(meterId).setAttribute('aria-valuenow', Math.round(fraction * 100));
 }
 
+function renderInfo() {
+  const info = data.info || {settings: {}};
+  const entries = Object.entries(info.settings);
+  $('info').hidden = !info.label && !info.description && !entries.length;
+  $('info-label').textContent = info.label || '';
+  $('info-description').textContent = info.description || '';
+  $('info-settings').textContent = entries.length
+    ? 'Settings: ' + entries.map(([key, value]) => `${key} = ${typeof value === 'object' ? JSON.stringify(value) : value}`).join(', ')
+    : 'Settings: all default';
+}
+
 function render() {
   const games = data.running && data.games_total ? ` — ${data.games_done.toLocaleString()} / ${data.games_total.toLocaleString()} games played` : '';
   $('status').textContent = data.running ? data.status + games : (data.summary || 'Done');
@@ -436,6 +452,7 @@ function render() {
     ? `Whole run (generation ${lastRow + 1} of ${data.total_generations})`
     : `Generation ${lastRow + 1}, all steps`;
   $('overall-percent').textContent = Math.round(data.fraction * 100) + '%';
+  renderInfo();
   showElapsed();
   renderTiles(); renderLegend(); drawCharts(); renderTable(); renderNotes();
 }

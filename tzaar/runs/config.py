@@ -3,6 +3,7 @@
 An empty file (or none) means every setting is as it is in the code. Keys:
   "seed"     the random seed (default 0)
   "workers"  how many processes play games at the same time (default: games.WORKERS)
+  "label", "description"  a name and a note (what this model tries and why) that the dashboard shows; no effect on training
   anything in CAPITALS that settings.py defines, e.g. {"MIN_SCORE_VS_BEST": 0.53}
 Only this model's training process sees them, so models can't affect each other."""
 
@@ -14,6 +15,8 @@ from tzaar.learning import settings
 from tzaar.nets import games
 from tzaar.nets.model_store import model_dir
 from tzaar.rules.rng import random_generator
+
+NOTE_KEYS = ("label", "description")      # for people reading the dashboard, not settings
 
 def load_config(name):
     path = model_dir(name) / "config.json"
@@ -28,6 +31,8 @@ def apply_config(config):
             random_generator.bit_generator.state = np.random.default_rng(value).bit_generator.state
         elif setting == "workers":
             games.WORKERS = value
+        elif setting in NOTE_KEYS:
+            continue
         elif setting.isupper() and hasattr(settings, setting):
             setattr(settings, setting, value)
         else:

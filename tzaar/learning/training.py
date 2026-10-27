@@ -15,7 +15,7 @@ from tzaar.learning.generation import (add_row, file_challenger, play_self_play_
 from tzaar.nets.games import generate_training_data, win_rate
 from tzaar.learning.phases import Phases
 from tzaar.learning.policy import RollingDonor, games_for, self_play_opponents
-from tzaar.nets.network import HIDDEN, HIDDEN2, Network
+from tzaar.nets.network import HIDDEN2, Network
 from tzaar.nets.players import make_net_player, random_player
 from tzaar.nets.rating import elo_gap, rate_net
 from tzaar.runs.progress import progress
@@ -135,9 +135,9 @@ def upgrade_best_net(rated_nets):
 
     generation, best, rating = rated_nets[-1]
 
-    if best.W1.shape[1] < HIDDEN:
+    if best.W1.shape[1] < settings.HIDDEN_NEURONS:
         rated_nets[-1] = (generation, best.widened(), rating)
-        print(f"Widened the best net (gen {generation}) from {best.W1.shape[1]} to {HIDDEN} hidden neurons")
+        print(f"Widened the best net (gen {generation}) from {best.W1.shape[1]} to {settings.HIDDEN_NEURONS} hidden neurons")
 
     if rated_nets[-1][1].V is None:             # a net saved before the second layer existed: add it (scores don't change)
         generation, best, rating = rated_nets[-1]

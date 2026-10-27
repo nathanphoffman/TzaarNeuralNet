@@ -9,6 +9,8 @@ GAMES_PER_GENERATION = 20     # ...growing by this many games for each generatio
 # New training games the best net plays each generation. More fresh games gave better nets (the jumps at 859, 903
 # and 937 came with more data and fewer epochs). A position is about 3.2 KB, so a 5000-game batch is roughly
 # 670 MB; the limit is memory (12 GB machine), which is why BATCHES_TO_KEEP is small. Lower this if it runs out.
+HIDDEN_NEURONS = 256          # neurons in the first hidden layer. A saved net with fewer is widened to this when training resumes (it plays
+                              # exactly as before); a net with more is left as it is. Older nets stay narrow and still serve as opponents.
 MAX_SELF_PLAY_GAMES = 5000
 MAX_MATCH_GAMES = 600         # games per test match: enough that the score is accurate to about +-2 points
 WARM_START = True             # new nets start as a copy of the best net instead of from scratch

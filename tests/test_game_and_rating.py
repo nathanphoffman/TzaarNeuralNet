@@ -61,3 +61,18 @@ class GameCountTests(unittest.TestCase):
 
         self.assertTrue(all(total == 24 for _, total in reports))
         self.assertTrue(all(0 <= done <= 24 for done, _ in reports))
+
+class WidthSettingTests(unittest.TestCase):
+    def test_widening_follows_the_width_setting_and_keeps_the_scores(self):
+        from tzaar.learning import settings
+        from tzaar.nets.network import Network
+        import numpy as np
+
+        self.addCleanup(setattr, settings, "HIDDEN_NEURONS", settings.HIDDEN_NEURONS)
+        narrow = Network(hidden=8)
+        settings.HIDDEN_NEURONS = 16
+        wide = narrow.widened()
+        self.assertEqual(wide.W1.shape[1], 16)
+        self.assertEqual(Network().W1.shape[1], 16)
+        inputs = np.random.default_rng(0).random((5, narrow.W1.shape[0])).astype(np.float32)
+        np.testing.assert_allclose(wide.predict(inputs), narrow.predict(inputs), atol=1e-5)

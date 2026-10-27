@@ -1,1 +1,5 @@
-{"seed": 1}
+{
+ "label": "Plain self-play, second seed",
+ "description": "Same recipe as evolution-1 with a different random seed. Shows how much two identical runs differ (best net 826 on the benchmark).",
+ "seed": 1
+}

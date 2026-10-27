@@ -28,6 +28,27 @@ class FakeOutput:
     def join(self):
         pass
 
+class ModelInfoTests(TemporaryModels):
+    def test_info_has_the_note_and_the_settings_but_not_the_note_keys_in_settings(self):
+        model_store.model_dir("first").mkdir()
+        (model_store.model_dir("first") / "config.json").write_text(
+            json.dumps({"label": "A label", "description": "Why", "seed": 3, "SEARCH_LABEL_SHARE": 0.3}))
+        info = dashboard.model_info("first")
+        self.assertEqual((info["label"], info["description"]), ("A label", "Why"))
+        self.assertEqual(info["settings"], {"seed": 3, "SEARCH_LABEL_SHARE": 0.3})
+
+    def test_a_model_without_a_config_has_empty_info(self):
+        model_store.model_dir("second").mkdir()
+        self.assertEqual(dashboard.model_info("second"), {"label": None, "description": None, "settings": {}})
+
+    def test_progress_carries_the_info(self):
+        model_store.model_dir("first").mkdir()
+        self.assertIn("info", dashboard.model_progress("first"))
+
+    def test_the_note_keys_are_not_settings_for_training(self):
+        from tzaar.runs.config import apply_config
+        apply_config({"label": "x", "description": "y"})
+
 class TrainerTests(TemporaryModels):
     def setUp(self):
         super().setUp()

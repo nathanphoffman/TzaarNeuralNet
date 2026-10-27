@@ -15,6 +15,7 @@ from urllib.parse import parse_qs, urlparse
 from tzaar.learning.checkpoint import HISTORY_KEY
 from tzaar.learning.checkpoint_paths import history_path
 from tzaar.nets.model_store import list_models, model_dir
+from tzaar.runs.config import NOTE_KEYS, load_config
 from tzaar.runs.progress import ELAPSED_KEY, RUNNING_KEY, bars_now
 from tzaar.runs.runner import start_child
 from web.web_response import HTML_TYPE, HTTP_BAD_REQUEST, HTTP_NOT_FOUND, send, send_json
@@ -35,7 +36,20 @@ def _alive(process_id):
 
     return True
 
+def model_info(name):
+    """What the model is for and which settings it changes, from its config.json (the page shows it above the charts)."""
+
+    config = load_config(name)
+
+    return {"label": config.get("label"), "description": config.get("description"),
+            "settings": {key: value for key, value in config.items() if key not in NOTE_KEYS}}
+
 def model_progress(name):
+    """The progress of a model's training run (see _progress), with its info added."""
+
+    return dict(_progress(name), info=model_info(name))
+
+def _progress(name):
     """The latest progress of a model's training run. If no run has written one (or it was stopped), the
     saved history is shown instead."""
 

@@ -1,10 +1,10 @@
 """A small neural network that scores a Tzaar position."""
 import numpy as np
 
+from tzaar.learning import settings
 from tzaar.rules.encoding import NUM_FEATURES
 from tzaar.rules.rng import random_generator
 
-HIDDEN = 256       # neurons in the hidden layer for new nets; older, narrower nets are widened to this (see widened)
 SECOND_LAYER_RATE = 0.1   # the second layer learns this much slower than the rest, so it can't unsettle a tuned net
 INPUT_WEIGHT_SPREAD = 0.1     # standard deviation of the random starting weights (first layer, second layer, new neurons)
 OUTPUT_WEIGHT_SPREAD = 0.3    # ...and of the weights to the output, which start larger so the first outputs differ
@@ -20,7 +20,8 @@ class Network:
         output  = tanh(hidden @ W2 + hidden2 @ U + b2)
     Nets without it (V is None) just use the direct path."""
 
-    def __init__(self, hidden=HIDDEN):
+    def __init__(self, hidden=None):
+        hidden = hidden or settings.HIDDEN_NEURONS
         self.W1 = random_generator.normal(0, INPUT_WEIGHT_SPREAD, (NUM_FEATURES, hidden)).astype(np.float32)
         self.b1 = np.zeros(hidden, dtype=np.float32)
         self.W2 = random_generator.normal(0, OUTPUT_WEIGHT_SPREAD, (hidden, 1)).astype(np.float32)
@@ -42,11 +43,12 @@ class Network:
 
         return other
 
-    def widened(self, hidden=HIDDEN):
-        """A copy with more hidden neurons that scores every position exactly as this net does. The new
+    def widened(self, hidden=None):
+        """A copy with more hidden neurons (settings.HIDDEN_NEURONS if not said) that scores every position exactly as this net does. The new
         neurons start with zero weights from the inputs, so they output 0 and change nothing, and small random
         weights to the output, so training can start using them."""
 
+        hidden = hidden or settings.HIDDEN_NEURONS
         extra = hidden - self.W1.shape[1]
 
         if extra <= 0:
