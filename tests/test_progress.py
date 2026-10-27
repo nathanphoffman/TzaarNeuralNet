@@ -3,7 +3,7 @@ import unittest
 from unittest import mock
 
 from tzaar.runs import progress as progress_module
-from tzaar.runs.progress import Progress, fraction_now
+from tzaar.runs.progress import DEFAULT_STEP_WEIGHTS, Progress, bars_now, fraction_now
 
 def snapshot(**changes):
     values = {"games_done": None, "games_total": None, "running": True, "steps_started": 1, "total_steps": None, "setup_steps": 0, "steps_per_generation": 3,
@@ -16,8 +16,8 @@ class FractionTests(unittest.TestCase):
     def test_a_finished_run_is_full(self):
         self.assertEqual(fraction_now(snapshot(running=False), 0), 1.0)
 
-    def test_untimed_steps_count_the_same(self):
-        self.assertAlmostEqual(fraction_now(snapshot(steps_started=2), 105), 1 / 3)
+    def test_untimed_steps_use_the_default_guess(self):
+        self.assertAlmostEqual(fraction_now(snapshot(steps_started=2), 105), DEFAULT_STEP_WEIGHTS[0])
 
     def test_timed_steps_are_weighted_by_how_long_they_took(self):
         durations = [10.0, 20.0, 70.0]
@@ -38,6 +38,11 @@ class FractionTests(unittest.TestCase):
     def test_setup_steps_use_the_plain_step_count(self):
         self.assertAlmostEqual(fraction_now(snapshot(steps_started=2, setup_steps=2, total_steps=32), 100), 1 / 32)
 
+    def test_one_timed_step_scales_the_guess_for_the_others(self):
+        # self-play took 100 s, so training (default 0.1/0.7 of that) and testing are guessed from it
+        value = fraction_now(snapshot(steps_started=2, step_durations=[100.0, None, None]), 100)
+        self.assertAlmostEqual(value, 0.7)
+
 class GamesFractionTests(unittest.TestCase):
     def test_setup_follows_the_games_played(self):
         value = fraction_now(snapshot(setup_steps=1, steps_started=1, games_done=500, games_total=1000), 100)
@@ -45,14 +50,31 @@ class GamesFractionTests(unittest.TestCase):
 
     def test_the_first_generations_self_play_follows_the_games_played(self):
         value = fraction_now(snapshot(setup_steps=1, steps_started=2, games_done=500, games_total=1000), 100)
-        self.assertAlmostEqual(value, 0.5 / 3)
+        self.assertAlmostEqual(value, 0.5 * DEFAULT_STEP_WEIGHTS[0])
 
-    def test_games_in_later_steps_do_not_move_an_untimed_bar(self):
+    def test_games_in_later_steps_move_the_bar_within_that_step(self):
         value = fraction_now(snapshot(setup_steps=0, steps_started=3, games_done=500, games_total=1000), 100)
-        self.assertAlmostEqual(value, 2 / 3)
+        self.assertAlmostEqual(value, sum(DEFAULT_STEP_WEIGHTS[:2]) + 0.5 * DEFAULT_STEP_WEIGHTS[2])
 
     def test_a_snapshot_without_game_counts_still_works(self):
-        self.assertAlmostEqual(fraction_now(snapshot(steps_started=2), 100), 1 / 3)
+        self.assertAlmostEqual(fraction_now(snapshot(steps_started=2), 100), DEFAULT_STEP_WEIGHTS[0])
+
+class TwoBarsTests(unittest.TestCase):
+    def test_the_step_bar_follows_the_games_and_the_generation_bar_the_whole_generation(self):
+        step, generation = bars_now(snapshot(steps_started=1, games_done=250, games_total=1000), 100)
+        self.assertAlmostEqual(step, 0.25)
+        self.assertAlmostEqual(generation, 0.25 * DEFAULT_STEP_WEIGHTS[0])
+
+    def test_the_step_bar_uses_the_last_time_when_there_are_no_games(self):
+        step, _ = bars_now(snapshot(steps_started=2, step_durations=[10.0, 20.0, 70.0]), 110)
+        self.assertAlmostEqual(step, 0.5)
+
+    def test_the_generation_bar_only_reaches_the_end_when_the_last_step_is_done(self):
+        durations = [10.0, 20.0, 70.0]
+        _, almost = bars_now(snapshot(steps_started=3, step_durations=durations), 100 + 1000)
+        self.assertLess(almost, 1.0)
+        _, next_generation = bars_now(snapshot(steps_started=4, step_durations=durations), 100)
+        self.assertAlmostEqual(next_generation, 0.0)       # a new generation starts its own bar at 0
 
 class ProgressTimingTests(unittest.TestCase):
     def test_step_lengths_are_learned_from_the_previous_generation(self):

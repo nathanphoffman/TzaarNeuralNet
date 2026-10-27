@@ -12,41 +12,66 @@ RUNNING_KEY = "running"        # keys of the progress snapshot that the dashboar
 ELAPSED_KEY = "elapsed"
 STEP_CAP = 0.95                # a step that runs longer than last time waits at 95% of its share until it finishes
 
-def fraction_now(snapshot, now):
-    """How far along the bar is. Once every step of a generation has been timed once, the bar is weighted by how
-    long each step took last time and moves smoothly inside the current step. Until then each step counts the same."""
+DEFAULT_STEP_WEIGHTS = (0.7, 0.1, 0.2)    # a first guess of how the time of a generation splits over its steps (self-play dominates)
+
+def _step_weights(durations, steps_per_generation):
+    """How much of a generation each step is. Steps that were timed use their real length; the others get the default
+    guess scaled to match, so the estimate gets better step by step instead of jumping once all three are timed."""
+
+    defaults = DEFAULT_STEP_WEIGHTS if steps_per_generation == len(DEFAULT_STEP_WEIGHTS) else (1.0,) * steps_per_generation
+    known = [index for index, length in enumerate(durations) if length]
+
+    if not known:
+        return list(defaults)
+
+    scale = sum(durations[index] for index in known) / sum(defaults[index] for index in known)
+
+    return [durations[index] if index in known else defaults[index] * scale for index in range(steps_per_generation)]
+
+def bars_now(snapshot, now):
+    """Returns (step, overall), each 0 to 1. `step` is how far the current step is: the games played if it is playing
+    games, else the time so far against how long the step took last time. `overall` is the whole run if it has a set
+    number of generations, else the current generation (it reaches 1 when the generation is complete).
+    The weights of the steps are the real lengths once they have been timed, and a guess until then."""
 
     if not snapshot[RUNNING_KEY]:
-        return 1.0
+        return 1.0, 1.0
 
     steps_per_generation, durations = snapshot["steps_per_generation"], snapshot["step_durations"]
     done_steps = max(0, snapshot["steps_started"] - 1)
     into_generations = done_steps - snapshot["setup_steps"]          # steps done since the self-play generations began
     total_steps = snapshot["total_steps"]
-    timed = into_generations >= 0 and snapshot["step_started_at"] is not None and None not in durations
     games_total = snapshot.get("games_total")
-    games_share = snapshot["games_done"] / games_total if games_total else 0.0      # of the batch being played now
+    games_share = snapshot["games_done"] / games_total if games_total else None      # of the batch being played now
 
     if into_generations < 0:                   # setting up: random games, or rebuilding the training data, are most of it
-        return min(1.0, (done_steps + games_share) / max(1, snapshot["setup_steps"] if total_steps is None else total_steps))
+        overall = (done_steps + (games_share or 0.0)) / max(1, snapshot["setup_steps"] if total_steps is None else total_steps)
 
-    if timed:
-        position, finished = into_generations % steps_per_generation, into_generations // steps_per_generation
-        into_step = min(max(0.0, now - snapshot["step_started_at"]), STEP_CAP * durations[position])
-        generation_fraction = (sum(durations[:position]) + into_step) / sum(durations)
+        return games_share or 0.0, min(1.0, overall)
+
+    position, finished = into_generations % steps_per_generation, into_generations // steps_per_generation
+    weights = _step_weights(durations, steps_per_generation)
+
+    if games_share is not None:
+        step = games_share
+    elif durations[position] and snapshot["step_started_at"] is not None:
+        step = min(max(0.0, now - snapshot["step_started_at"]) / durations[position], STEP_CAP)
     else:
-        position, finished = max(0, into_generations) % steps_per_generation, max(0, into_generations) // steps_per_generation
-        generation_fraction = (position + (games_share if position == 0 else 0.0)) / steps_per_generation      # step 0 is one batch of games
+        step = 0.0
+
+    generation = (sum(weights[:position]) + step * weights[position]) / sum(weights)
 
     if total_steps is None:
-        return generation_fraction             # no end in sight: the bar shows the current generation
-
-    if not timed:
-        return (done_steps + (games_share if position == 0 else 0.0)) / max(1, total_steps)
+        return step, generation                # no end in sight: the bar shows the current generation
 
     generations_to_run = (total_steps - snapshot["setup_steps"]) / steps_per_generation
 
-    return min(1.0, (finished + generation_fraction) / max(1.0, generations_to_run))
+    return step, min(1.0, (finished + generation) / max(1.0, generations_to_run))
+
+def fraction_now(snapshot, now):
+    """How far along the main bar is (see bars_now)."""
+
+    return bars_now(snapshot, now)[1]
 
 class Progress:
     def __init__(self):
@@ -176,7 +201,7 @@ class Progress:
                     "step_durations": list(self.step_durations), "games_done": self.games_done,
                     "games_total": self.games_total, "detail": self.detail}
 
-        snapshot["fraction"] = fraction_now(snapshot, now)
+        snapshot["step_fraction"], snapshot["fraction"] = bars_now(snapshot, now)
 
         return snapshot
 

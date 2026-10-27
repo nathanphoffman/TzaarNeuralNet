@@ -15,7 +15,7 @@ from urllib.parse import parse_qs, urlparse
 from tzaar.learning.checkpoint import HISTORY_KEY
 from tzaar.learning.checkpoint_paths import history_path
 from tzaar.nets.model_store import list_models, model_dir
-from tzaar.runs.progress import ELAPSED_KEY, RUNNING_KEY, fraction_now
+from tzaar.runs.progress import ELAPSED_KEY, RUNNING_KEY, bars_now
 from tzaar.runs.runner import start_child
 from web.web_response import HTML_TYPE, HTTP_BAD_REQUEST, HTTP_NOT_FOUND, send, send_json
 
@@ -46,7 +46,7 @@ def model_progress(name):
         if _alive(snapshot["pid"]):
             now = time.time()
             snapshot[ELAPSED_KEY] += now - snapshot["written_at"]     # the file is only written between steps
-            snapshot["fraction"] = fraction_now(snapshot, now)
+            snapshot["step_fraction"], snapshot["fraction"] = bars_now(snapshot, now)
 
             return snapshot
 
@@ -60,7 +60,7 @@ def model_progress(name):
     rows = json.loads(history_path(name).read_text())[HISTORY_KEY] if history_path(name).exists() else []
 
     return {"status": "Not running", RUNNING_KEY: False, "summary": "Training is not running.", ELAPSED_KEY: 0,
-            "fraction": 1.0, "total_generations": None, "match_games": None, "generations": rows}
+            "fraction": 1.0, "step_fraction": 1.0, "total_generations": None, "match_games": None, "generations": rows}
 
 class Trainer:
     """Starts and stops training runs for the page. A run started here is a child process, the same as with train.py."""
