@@ -1,0 +1,11 @@
+{
+ "label": "Search-labeled positions, from evo-1 gen 432",
+ "description": "Plain self-play, but 30% of positions are labeled by a 2-turn lookahead mixed 50/50 with the game result, so the net learns what the search sees. Averaged 44.6% against the best net over 9 generations, so it did not help. Stopped.",
+ "seed": 8,
+ "workers": 6,
+ "MAX_SELF_PLAY_GAMES": 1000,
+ "SEARCH_LABEL_SHARE": 0.3,
+ "SEARCH_LABEL_WEIGHT": 0.5,
+ "SEARCH_LABEL_TURNS": 2,
+ "SEARCH_LABEL_KEEP": 3
+}

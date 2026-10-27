@@ -1,0 +1,15 @@
+{
+ "label": "From scratch: new signals, 512 / 256 net, plain and smart phases",
+ "description": "A brand new model trained from random games, to see whether it can beat evolution-1. Adds five new inputs (my attack map, last stack under threat, safe captures, pieces and tallest stack per kind, stacking moves), a 512-wide first layer and a 256-wide second layer, and the plain / smart phases of evolution-8 to 10 (cap of 10).",
+ "seed": 12,
+ "workers": 6,
+ "SMART_PHASE_GENERATIONS": 10,
+ "SMART_PHASE_SETTINGS": {
+  "SELF_PLAY_SEARCH_TURNS": 2,
+  "SELF_PLAY_SEARCH_KEEP": 3,
+  "SELF_PLAY_OPPONENTS_SEARCH": true,
+  "MAX_SELF_PLAY_GAMES": 1000
+ },
+ "HIDDEN_NEURONS": 512,
+ "HIDDEN2_NEURONS": 256
+}

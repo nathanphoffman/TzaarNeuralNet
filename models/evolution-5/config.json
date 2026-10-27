@@ -1,0 +1,9 @@
+{
+ "label": "Evo-4 plus baseline opponents",
+ "description": "A copy of evo-4 at generation 24, with 20% of self-play games against the baseline nets for variety. Rated 724 on the benchmark, but stalled from generation 67 on.",
+ "seed": 6,
+ "workers": 2,
+ "SELF_PLAY_SEARCH_TURNS": 2,
+ "SELF_PLAY_SEARCH_KEEP": 3,
+ "BASELINE_SHARE": 0.2
+}

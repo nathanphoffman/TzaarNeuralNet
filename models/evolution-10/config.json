@@ -1,0 +1,15 @@
+{
+ "label": "Phases with a 512 / 256 wide net, from evo-1",
+ "description": "Like evolution-9 (plain / smart phases, first hidden layer widened to 512), and the second hidden layer is widened from 64 to 256 as well (HIDDEN2_NEURONS). Starts from evo-1's best net (gen 432), widened so it plays exactly the same. Run this if evolution-9 does not get past the ceiling.",
+ "seed": 11,
+ "workers": 6,
+ "SMART_PHASE_GENERATIONS": 10,
+ "SMART_PHASE_SETTINGS": {
+  "SELF_PLAY_SEARCH_TURNS": 2,
+  "SELF_PLAY_SEARCH_KEEP": 3,
+  "SELF_PLAY_OPPONENTS_SEARCH": true,
+  "MAX_SELF_PLAY_GAMES": 1000
+ },
+ "HIDDEN_NEURONS": 512,
+ "HIDDEN2_NEURONS": 256
+}

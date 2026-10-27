@@ -1,0 +1,17 @@
+{
+ "label": "Evolution-11's best sparring against evolution-1",
+ "description": "Starts from evolution-11's best net (gen 27, copied) and plays half its games against evolution-1's best (gen 432), to see whether it can learn to beat it. Same settings as evolution-11 (512 / 256 net, plain and smart phases) plus the sparring partner. The dashboard's partner tile shows its win rate against evolution-1.",
+ "seed": 13,
+ "workers": 6,
+ "SMART_PHASE_GENERATIONS": 10,
+ "SMART_PHASE_SETTINGS": {
+  "SELF_PLAY_SEARCH_TURNS": 2,
+  "SELF_PLAY_SEARCH_KEEP": 3,
+  "SELF_PLAY_OPPONENTS_SEARCH": true,
+  "MAX_SELF_PLAY_GAMES": 1000
+ },
+ "HIDDEN_NEURONS": 512,
+ "HIDDEN2_NEURONS": 256,
+ "SPARRING_PARTNER": "baselines/evo1_gen0432.npz",
+ "SPARRING_SHARE": 0.5
+}

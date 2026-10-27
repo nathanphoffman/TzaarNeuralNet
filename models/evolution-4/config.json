@@ -1,0 +1,7 @@
+{
+ "label": "Lookahead in self-play, from scratch",
+ "description": "Started from random games, with the best net looking 2 turns ahead in self-play. Climbed faster than evo-1 early on. Stopped at generation 24.",
+ "workers": 2,
+ "SELF_PLAY_SEARCH_TURNS": 2,
+ "SELF_PLAY_SEARCH_KEEP": 3
+}

@@ -1,0 +1,13 @@
+{
+ "label": "Plain and smart phases, from evo-1",
+ "description": "Copy of evo-1 at generation 435. Plain phase: evo-1's recipe until a net is accepted. Smart phase: lookahead on both sides, until a net is accepted or 10 generations pass (then the best reject becomes an opponent). The phases take turns.",
+ "seed": 9,
+ "workers": 6,
+ "SMART_PHASE_GENERATIONS": 10,
+ "SMART_PHASE_SETTINGS": {
+  "SELF_PLAY_SEARCH_TURNS": 2,
+  "SELF_PLAY_SEARCH_KEEP": 3,
+  "SELF_PLAY_OPPONENTS_SEARCH": true,
+  "MAX_SELF_PLAY_GAMES": 1000
+ }
+}

@@ -1,0 +1,10 @@
+{
+ "label": "Lookahead in self-play, from evo-1 gen 432",
+ "description": "Started as a copy of evo-1 at generation 432. The best net looks 2 turns ahead while it plays its training games; its opponents play plainly. Older nets are picked less often (OLDER_NET_WEIGHT 0.2). Rejected 9 generations in a row.",
+ "seed": 5,
+ "workers": 2,
+ "MAX_SELF_PLAY_GAMES": 1000,
+ "SELF_PLAY_SEARCH_TURNS": 2,
+ "SELF_PLAY_SEARCH_KEEP": 3,
+ "OLDER_NET_WEIGHT": 0.2
+}

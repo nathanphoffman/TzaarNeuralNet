@@ -1,0 +1,14 @@
+{
+ "label": "Phases with a 512-wide net, from evo-1",
+ "description": "Same plain / smart phases as evolution-8, but the first hidden layer is widened from 256 to 512 neurons (HIDDEN_NEURONS). Starts from evo-1's best net (gen 432), widened so it plays exactly the same, to see if a wider net can climb past the ceiling.",
+ "seed": 10,
+ "workers": 6,
+ "SMART_PHASE_GENERATIONS": 10,
+ "SMART_PHASE_SETTINGS": {
+  "SELF_PLAY_SEARCH_TURNS": 2,
+  "SELF_PLAY_SEARCH_KEEP": 3,
+  "SELF_PLAY_OPPONENTS_SEARCH": true,
+  "MAX_SELF_PLAY_GAMES": 1000
+ },
+ "HIDDEN_NEURONS": 512
+}

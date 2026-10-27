@@ -1,0 +1,10 @@
+{
+ "label": "Lookahead on both sides, from evo-1 gen 432",
+ "description": "Copy of evo-1 at generation 432. Both players in self-play look 2 turns ahead, so games are close instead of one-sided. Slow. Never run.",
+ "seed": 7,
+ "workers": 6,
+ "MAX_SELF_PLAY_GAMES": 1000,
+ "SELF_PLAY_SEARCH_TURNS": 2,
+ "SELF_PLAY_SEARCH_KEEP": 3,
+ "SELF_PLAY_OPPONENTS_SEARCH": true
+}
