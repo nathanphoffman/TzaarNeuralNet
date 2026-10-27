@@ -69,6 +69,37 @@ def self_play_opponents(rated_nets, near_misses):
 
     return players[0], players, weights, labels
 
+def lasting_donors_to_keep():
+    """The donor slots for the best rejects since the last accepted net (one is the rolling donor if that is on)."""
+
+    return settings.DONORS_TO_KEEP - (1 if settings.RECENT_DONOR_WINDOW else 0)
+
+class RollingDonor:
+    """The best rejected net of the last RECENT_DONOR_WINDOW generations, a donor that keeps changing so the donors do not
+    go stale. Nothing happens if RECENT_DONOR_WINDOW is 0."""
+
+    def __init__(self):
+        self.entry = None           # (generation, net, score vs best)
+
+    def reject(self, generation, network, score):
+        """A challenger was rejected: it takes the slot if it beats the current one or the current one is too old."""
+
+        window = settings.RECENT_DONOR_WINDOW
+
+        if window and (self.entry is None or generation - self.entry[0] >= window or score > self.entry[2]):
+            self.entry = (generation, network, score)
+
+    def accept(self):
+        self.entry = None           # the new best net carries its own weights
+
+    def donors_with(self, lasting):
+        """The lasting donors plus the rolling one (unless it is already one of them)."""
+
+        if self.entry is None or any(generation == self.entry[0] for generation, _, _ in lasting):
+            return list(lasting)
+
+        return list(lasting) + [self.entry]
+
 def apply_donors(challenger, donors):
     """Give the challenger the average of the donors' weights for the parts that are not from the best net.
     Those are the parts the best net may not have learned yet (see the donor notes at the top): the weights for the

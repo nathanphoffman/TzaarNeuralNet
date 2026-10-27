@@ -8,7 +8,7 @@ import numpy as np
 from tzaar.learning import settings
 from tzaar.learning.checkpoint import GENERATION_KEY, RATING_KEY, save_batch
 from tzaar.nets.games import generate_training_data, win_rate
-from tzaar.learning.policy import apply_donors, epochs_for, games_for, is_borderline, self_play_opponents
+from tzaar.learning.policy import apply_donors, epochs_for, games_for, is_borderline, lasting_donors_to_keep, self_play_opponents
 from tzaar.nets.network import Network
 from tzaar.nets.players import make_net_player, random_player
 from tzaar.nets.search import make_value_labeler
@@ -152,6 +152,6 @@ def file_challenger(generation, challenger, verdict, rated_nets, near_misses, do
         near_misses.append((generation, challenger, verdict.rating))
 
     if not donors or verdict.score_vs_best > max(score for _, _, score in donors):
-        donors = (list(donors) + [(generation, challenger, verdict.score_vs_best)])[-settings.DONORS_TO_KEEP:]
+        donors = (list(donors) + [(generation, challenger, verdict.score_vs_best)])[-lasting_donors_to_keep():]
 
     return donors

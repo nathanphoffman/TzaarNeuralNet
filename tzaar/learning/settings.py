@@ -54,6 +54,8 @@ NEAR_MISS_SCORE = 0.50        # a rejected net that still won this much vs the b
 # The donors also supply the parts of the net that were added later and so haven't been proven yet: the hidden
 # neurons beyond the first PROVEN_HIDDEN (the net used to be that narrow) and the second hidden layer.
 DONORS_TO_KEEP = 3            # averaging a few smooths out donors that only scored well by luck (tests are +-2 points)
+RECENT_DONOR_WINDOW = 0       # 0 = off. If set (e.g. 5), one of the DONORS_TO_KEEP donor slots is a rolling one: the best rejected net of the
+                              # last this-many generations, even if it scored below the lasting donors. Not saved, so a restart begins without it.
 PROVEN_HIDDEN = 64            # the first neurons: well tuned, always from the best net, so a donor can't unsettle them
 
 # A net that fails narrowly gets one re-test against the best net before it is rejected, because a

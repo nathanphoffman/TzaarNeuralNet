@@ -52,6 +52,37 @@ class TrainingHelperTests(unittest.TestCase):
         _, players, _, _ = policy.self_play_opponents(rated, [])
         self.assertEqual([player.func.__name__ for player in players], ["search_move", "search_move"])
 
+    def test_rolling_donor_is_off_by_default(self):
+        rolling = policy.RollingDonor()
+        rolling.reject(1, "net", 0.4)
+        self.assertEqual(rolling.donors_with([]), [])
+        self.assertEqual(policy.lasting_donors_to_keep(), settings.DONORS_TO_KEEP)
+
+    def test_rolling_donor_is_the_best_of_the_window_and_replaced_when_old(self):
+        self.addCleanup(setattr, settings, "RECENT_DONOR_WINDOW", settings.RECENT_DONOR_WINDOW)
+        settings.RECENT_DONOR_WINDOW = 3
+        self.assertEqual(policy.lasting_donors_to_keep(), settings.DONORS_TO_KEEP - 1)
+        rolling = policy.RollingDonor()
+        rolling.reject(1, "a", 0.45)
+        rolling.reject(2, "b", 0.40)                  # worse and not old yet: keeps a
+        self.assertEqual(rolling.entry[1], "a")
+        rolling.reject(3, "c", 0.47)                  # better: takes the slot
+        self.assertEqual(rolling.entry[1], "c")
+        rolling.reject(4, "d", 0.30)
+        self.assertEqual(rolling.entry[1], "c")
+        rolling.reject(6, "e", 0.30)                  # c is 3 generations old: replaced even though e is worse
+        self.assertEqual(rolling.entry[1], "e")
+        rolling.accept()
+        self.assertIsNone(rolling.entry)
+
+    def test_rolling_donor_is_not_counted_twice(self):
+        self.addCleanup(setattr, settings, "RECENT_DONOR_WINDOW", settings.RECENT_DONOR_WINDOW)
+        settings.RECENT_DONOR_WINDOW = 5
+        rolling = policy.RollingDonor()
+        rolling.reject(7, "net", 0.48)
+        self.assertEqual(len(rolling.donors_with([(7, "net", 0.48)])), 1)
+        self.assertEqual(len(rolling.donors_with([(5, "old", 0.49)])), 2)
+
     def test_baselines_get_their_share_of_self_play_games(self):
         self.addCleanup(setattr, settings, "BASELINE_SHARE", settings.BASELINE_SHARE)
         rated = [(0, Network(hidden=8), 100.0)]
