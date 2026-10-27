@@ -13,6 +13,7 @@ from tzaar.learning.generation import (add_row, file_challenger, play_self_play_
                                        test_challenger, train_challenger)
 
 from tzaar.nets.games import generate_training_data, win_rate
+from tzaar.learning.phases import Phases
 from tzaar.learning.policy import RollingDonor, games_for, self_play_opponents
 from tzaar.nets.network import HIDDEN, HIDDEN2, Network
 from tzaar.nets.players import make_net_player, random_player
@@ -97,8 +98,10 @@ def run_self_play_generations(generations, history, rated_nets, near_misses, bat
     numbers = itertools.count(first) if generations is None else range(first, first + generations)
 
     rolling = RollingDonor()
+    phases = Phases()
 
     for generation in numbers:
+        phases.start_generation()
         match_games = games_for(generation, settings.MAX_MATCH_GAMES)
         batches = play_self_play_games(generation, rated_nets, near_misses, batches)
         challenger = train_challenger(generation, rated_nets, rolling.donors_with(donors), batches)
@@ -118,6 +121,7 @@ def run_self_play_generations(generations, history, rated_nets, near_misses, bat
         else:
             rolling.reject(generation, challenger, verdict.score_vs_best)
 
+        phases.end_generation(generation, challenger, verdict, near_misses)
         save_checkpoint(history, rated_nets, near_misses, donors)
 
     _, best, best_rating = rated_nets[-1]

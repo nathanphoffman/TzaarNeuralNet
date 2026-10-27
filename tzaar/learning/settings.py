@@ -56,6 +56,13 @@ NEAR_MISS_SCORE = 0.50        # a rejected net that still won this much vs the b
 DONORS_TO_KEEP = 3            # averaging a few smooths out donors that only scored well by luck (tests are +-2 points)
 RECENT_DONOR_WINDOW = 0       # 0 = off. If set (e.g. 5), one of the DONORS_TO_KEEP donor slots is a rolling one: the best rejected net of the
                               # last this-many generations, even if it scored below the lasting donors. Not saved, so a restart begins without it.
+
+# Alternating plain and smart phases (see phases.py). 0 = off. Otherwise a smart phase gives up after this many generations
+# without an accepted net. The smart phase is the normal settings with these overrides on top, e.g.
+# {"SELF_PLAY_SEARCH_TURNS": 2, "SELF_PLAY_OPPONENTS_SEARCH": true} or {"SEARCH_LABEL_SHARE": 0.3}. Not saved: a restart begins in the plain phase.
+SMART_PHASE_GENERATIONS = 0
+SMART_PHASE_SETTINGS = {}
+CURRENT_PHASE = ""            # "plain" or "smart" while phases are on; set by the training, shown on the dashboard
 PROVEN_HIDDEN = 64            # the first neurons: well tuned, always from the best net, so a donor can't unsettle them
 
 # A net that fails narrowly gets one re-test against the best net before it is rejected, because a
