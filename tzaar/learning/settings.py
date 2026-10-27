@@ -66,6 +66,15 @@ DONORS_TO_KEEP = 3            # averaging a few smooths out donors that only sco
 RECENT_DONOR_WINDOW = 0       # 0 = off. If set (e.g. 5), one of the DONORS_TO_KEEP donor slots is a rolling one: the best rejected net of the
                               # last this-many generations, even if it scored below the lasting donors. Not saved, so a restart begins without it.
 
+# Anti-donors: a rejected challenger that scored clearly badly against the best net shows which way NOT to go. The best net's
+# weights that changed the most in those challengers are pushed a little the other way in the next challenger, before it trains.
+# 0 = off. Otherwise a challenger scoring below this against the best net becomes an anti-donor (the last ANTI_DONORS_TO_KEEP are kept,
+# and they are dropped when a net is accepted). Not saved: a restart begins without them.
+ANTI_DONOR_BELOW = 0
+ANTI_DONORS_TO_KEEP = 3
+ANTI_DONOR_STEP = 0.15        # how much of the difference (anti-donors' average minus the best net) to move back
+ANTI_DONOR_TOP_SHARE = 0.1    # only the weights that changed most (this share of each part of the net) are moved back
+
 # Alternating plain and smart phases (see phases.py). 0 = off. Otherwise a smart phase gives up after this many generations
 # without an accepted net. The smart phase is the normal settings with these overrides on top, e.g.
 # {"SELF_PLAY_SEARCH_TURNS": 2, "SELF_PLAY_OPPONENTS_SEARCH": true} or {"SEARCH_LABEL_SHARE": 0.3}. Not saved: a restart begins in the plain phase.

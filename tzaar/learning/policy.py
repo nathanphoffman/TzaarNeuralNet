@@ -136,6 +136,44 @@ class RollingDonor:
 
         return list(lasting) + [self.entry]
 
+class AntiDonors:
+    """The last ANTI_DONORS_TO_KEEP rejected challengers that scored below ANTI_DONOR_BELOW against the best net.
+    Nothing happens if ANTI_DONOR_BELOW is 0."""
+
+    def __init__(self):
+        self.nets = []
+
+    def reject(self, network, score):
+        if settings.ANTI_DONOR_BELOW and score < settings.ANTI_DONOR_BELOW:
+            self.nets = (self.nets + [network])[-settings.ANTI_DONORS_TO_KEEP:]
+
+    def accept(self):
+        self.nets = []              # the new best net is a different starting point
+
+def apply_anti_donors(challenger, best, anti_nets):
+    """Move the challenger away from where the anti-donors went: for each part of the net, the difference between the
+    anti-donors' average and the best net, restricted to the ANTI_DONOR_TOP_SHARE of weights that differ most,
+    is subtracted ANTI_DONOR_STEP times."""
+
+    for part in ("W1", "b1", "W2", "b2", "V", "c", "U"):
+        base = getattr(best, part)
+        current = getattr(challenger, part)
+
+        if base is None or current is None:
+            continue
+
+        nets = [getattr(network, part) for network in anti_nets if getattr(network, part) is not None]
+        nets = [weights for weights in nets if weights.shape == base.shape]
+
+        if not nets:
+            continue
+
+        delta = np.mean(nets, axis=0) - base
+        size = np.abs(delta)
+        keep = max(1, int(round(size.size * settings.ANTI_DONOR_TOP_SHARE)))
+        cutoff = np.partition(size.ravel(), size.size - keep)[size.size - keep]
+        current -= (settings.ANTI_DONOR_STEP * delta * (size >= cutoff)).astype(current.dtype)
+
 def apply_donors(challenger, donors):
     """Give the challenger the average of the donors' weights for the parts that are not from the best net.
     Those are the parts the best net may not have learned yet (see the donor notes at the top): the weights for the

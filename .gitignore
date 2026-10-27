@@ -14,3 +14,7 @@ models/*/checkpoint/miss_*.npz
 
 # Saved self-play games, so a restart doesn't replay them: hundreds of MB each
 models/*/checkpoint/batch_*.npz
+
+# Every accepted and donor net in a checkpoint: only needed to resume training. Each model's best net is models/<name>/model.npz
+models/*/checkpoint/net_gen*.npz
+models/*/checkpoint/donor_*.npz

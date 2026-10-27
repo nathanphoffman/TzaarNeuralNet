@@ -14,7 +14,7 @@ from tzaar.learning.generation import (add_row, file_challenger, play_self_play_
 
 from tzaar.nets.games import generate_training_data, win_rate
 from tzaar.learning.phases import Phases
-from tzaar.learning.policy import RollingDonor, games_for, self_play_opponents
+from tzaar.learning.policy import AntiDonors, RollingDonor, games_for, self_play_opponents
 from tzaar.nets.network import Network
 from tzaar.nets.players import make_net_player, random_player
 from tzaar.nets.rating import elo_gap, rate_net
@@ -98,6 +98,7 @@ def run_self_play_generations(generations, history, rated_nets, near_misses, bat
     numbers = itertools.count(first) if generations is None else range(first, first + generations)
 
     rolling = RollingDonor()
+    anti = AntiDonors()
     phases = Phases()
     start_row = next((row for row in history if row[GENERATION_KEY] == rated_nets[-1][0]), None)
 
@@ -108,7 +109,7 @@ def run_self_play_generations(generations, history, rated_nets, near_misses, bat
         phases.start_generation()
         match_games = games_for(generation, settings.MAX_MATCH_GAMES)
         batches = play_self_play_games(generation, rated_nets, near_misses, batches)
-        challenger = train_challenger(generation, rated_nets, rolling.donors_with(donors), batches)
+        challenger = train_challenger(generation, rated_nets, rolling.donors_with(donors), batches, anti.nets)
         verdict = test_challenger(generation, challenger, rated_nets, match_games)
 
         if verdict.borderline:
@@ -123,8 +124,10 @@ def run_self_play_generations(generations, history, rated_nets, near_misses, bat
 
         if verdict.accepted:
             rolling.accept()
+            anti.accept()
         else:
             rolling.reject(generation, challenger, verdict.score_vs_best)
+            anti.reject(challenger, verdict.score_vs_best)
 
         phases.end_generation(generation, challenger, verdict, near_misses)
         save_checkpoint(history, rated_nets, near_misses, donors)

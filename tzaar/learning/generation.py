@@ -8,7 +8,7 @@ import numpy as np
 from tzaar.learning import settings
 from tzaar.learning.checkpoint import GENERATION_KEY, RATING_KEY, save_batch
 from tzaar.nets.games import generate_training_data, win_rate
-from tzaar.learning.policy import (apply_donors, epochs_for, games_for, is_borderline, lasting_donors_to_keep, self_play_opponents,
+from tzaar.learning.policy import (apply_anti_donors, apply_donors, epochs_for, games_for, is_borderline, lasting_donors_to_keep, self_play_opponents,
                                    sparring_partner)
 from tzaar.nets.network import Network
 from tzaar.nets.players import make_net_player, random_player
@@ -65,7 +65,7 @@ def play_self_play_games(generation, rated_nets, near_misses, batches):
 
     return (batches + [batch])[-settings.BATCHES_TO_KEEP:]
 
-def train_challenger(generation, rated_nets, donors, batches):
+def train_challenger(generation, rated_nets, donors, batches, anti_donors=()):
     """A new net trained on the recent batches: a copy of the best net (with the donors' weights) or a fresh one."""
 
     _, best, best_rating = rated_nets[-1]
@@ -83,6 +83,9 @@ def train_challenger(generation, rated_nets, donors, batches):
 
     if donors:
         apply_donors(challenger, donors)
+
+    if anti_donors:
+        apply_anti_donors(challenger, best, anti_donors)
 
     challenger.train(inputs, targets, epochs=epochs_for(best_rating), learning_rate=settings.WARM_START_LEARNING_RATE)
 

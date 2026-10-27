@@ -4,6 +4,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import numpy as np
+
 from tests.helpers import TemporaryModels
 from tzaar.learning import policy, settings
 from tzaar.learning import generation
@@ -85,6 +87,34 @@ class TrainingHelperTests(unittest.TestCase):
         rolling.reject(7, "net", 0.48)
         self.assertEqual(len(rolling.donors_with([(7, "net", 0.48)])), 1)
         self.assertEqual(len(rolling.donors_with([(5, "old", 0.49)])), 2)
+
+    def test_anti_donors_are_off_by_default_and_keep_only_bad_rejects(self):
+        for name in ("ANTI_DONOR_BELOW", "ANTI_DONORS_TO_KEEP"):
+            self.addCleanup(setattr, settings, name, getattr(settings, name))
+
+        anti = policy.AntiDonors()
+        anti.reject("net", 0.1)
+        self.assertEqual(anti.nets, [])
+        settings.ANTI_DONOR_BELOW, settings.ANTI_DONORS_TO_KEEP = 0.45, 2
+        for name, score in (("a", 0.40), ("b", 0.47), ("c", 0.30), ("d", 0.20)):
+            anti.reject(name, score)
+        self.assertEqual(anti.nets, ["c", "d"])
+        anti.accept()
+        self.assertEqual(anti.nets, [])
+
+    def test_anti_donor_moves_the_most_changed_weights_back(self):
+        for name in ("ANTI_DONOR_STEP", "ANTI_DONOR_TOP_SHARE"):
+            self.addCleanup(setattr, settings, name, getattr(settings, name))
+
+        settings.ANTI_DONOR_STEP, settings.ANTI_DONOR_TOP_SHARE = 0.5, 0.25
+        best = Network(hidden=4)
+        worse = best.copy()
+        worse.W2[:] = best.W2 + np.array([[0.4], [0.01], [0.02], [0.03]], dtype=np.float32)
+        challenger = best.copy()
+        policy.apply_anti_donors(challenger, best, [worse])
+        self.assertAlmostEqual(float(challenger.W2[0, 0] - best.W2[0, 0]), -0.2, places=5)      # the biggest change is undone by half
+        self.assertTrue(np.array_equal(challenger.W2[1:], best.W2[1:]))                          # small ones are left alone
+        self.assertTrue(np.array_equal(challenger.W1, best.W1))                                  # no change there, no move
 
     def test_sparring_partner_gets_its_share_and_a_label(self):
         for name in ("SPARRING_PARTNER", "SPARRING_SHARE", "SPARRING_PARTNER_TURNS"):
