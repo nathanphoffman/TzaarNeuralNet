@@ -1,12 +1,17 @@
 """The rules training follows: how much to play and train at each stage, who counts as a worthy opponent,
 and how to tell a narrow fail from a clear one."""
 
+from pathlib import Path
+
 import numpy as np
 
 from tzaar.learning import settings
+from tzaar.nets.model_store import load_net
 from tzaar.nets.players import make_net_player
 from tzaar.nets.search import make_search_player
 from tzaar.rules.encoding import SIGNALS_START
+
+BASELINES = Path(__file__).resolve().parent.parent.parent / "baselines"
 
 def epochs_for(rating):
     """A weak net learns a lot from each pass over the data, a strong one mostly picks up noise."""
@@ -46,12 +51,23 @@ def self_play_opponents(rated_nets, near_misses):
     players = [make_net_player(network, epsilon=settings.SELF_PLAY_EPSILON) for _, network, _ in entries]
 
     if settings.SELF_PLAY_SEARCH_TURNS:
-        players[0] = make_search_player(best_net, settings.SELF_PLAY_SEARCH_TURNS, settings.SELF_PLAY_SEARCH_KEEP,
-                                        epsilon=settings.SELF_PLAY_EPSILON)
+        searching = range(len(entries)) if settings.SELF_PLAY_OPPONENTS_SEARCH else [0]
+
+        for index in searching:
+            players[index] = make_search_player(entries[index][1], settings.SELF_PLAY_SEARCH_TURNS, settings.SELF_PLAY_SEARCH_KEEP,
+                                                epsilon=settings.SELF_PLAY_EPSILON)
 
     labels = [f"gen {generation}{'*' if near else ''}" for generation, _, near in entries]
+    weights = weights / weights.sum()
 
-    return players[0], players, weights / weights.sum(), labels
+    if settings.BASELINE_SHARE:
+        paths = sorted(BASELINES.glob("*.npz"))
+        players += [make_net_player(load_net(path), epsilon=settings.SELF_PLAY_EPSILON) for path in paths]
+        labels += [path.stem for path in paths]
+        weights = np.concatenate([weights * (1 - settings.BASELINE_SHARE),
+                                  np.full(len(paths), settings.BASELINE_SHARE / len(paths))])
+
+    return players[0], players, weights, labels
 
 def apply_donors(challenger, donors):
     """Give the challenger the average of the donors' weights for the parts that are not from the best net.

@@ -56,6 +56,24 @@ def search_move(network, turns, keep, state, epsilon=0.0):
 
     return best_move
 
+def search_value(network, state, turns, keep, side):
+    """How good `state` is for `side` by the same lookahead, clipped to the net's own range (-1 to 1).
+    The game must not be over."""
+
+    return float(np.clip(_value(network, state, turns, keep, side), -1.0, 1.0))
+
+def make_value_labeler(network, turns, keep, share):
+    """A function (state, side) -> the lookahead's value of that position for `side`, for about `share` of the
+    calls, else None. Used to label training positions with what the search thinks of them."""
+
+    def labeler(state, side):
+        if random_generator.random() >= share:
+            return None
+
+        return search_value(network, state, turns, keep, side)
+
+    return labeler
+
 def make_search_player(network, turns=2, keep=5, epsilon=0.0):
     """A player (a function from a state to a move) that looks `turns` turns ahead."""
 

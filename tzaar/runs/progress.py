@@ -95,6 +95,7 @@ class Progress:
             seeded = self._seed is not None and len(self._seed) == steps_per_generation
             self.step_durations = list(self._seed) if seeded else [None] * steps_per_generation    # how long each step took last time
             self.games_done = self.games_total = None       # of the batch of games being played now, if one is
+            self.detail = None                              # a line about this generation, e.g. who the best net plays against
 
             self.status = "Starting..."
             self.generations = list(rows)    # one row per generation, generation 0 first
@@ -119,6 +120,13 @@ class Progress:
             self.step_started_at = now
             self.status = status
             self.games_done = self.games_total = None
+            self._save()
+
+    def set_detail(self, text):
+        """A line of extra information for the dashboard; it stays until the next one."""
+
+        with self._lock:
+            self.detail = text
             self._save()
 
     def set_games(self, done, total):
@@ -166,7 +174,7 @@ class Progress:
                     "steps_started": self.steps_started, "total_steps": self.total_steps, "setup_steps": self.setup_steps,
                     "steps_per_generation": self.steps_per_generation, "step_started_at": self.step_started_at,
                     "step_durations": list(self.step_durations), "games_done": self.games_done,
-                    "games_total": self.games_total}
+                    "games_total": self.games_total, "detail": self.detail}
 
         snapshot["fraction"] = fraction_now(snapshot, now)
 

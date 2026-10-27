@@ -24,6 +24,12 @@ OPPONENTS_BACK = 3            # a new net is rated against this many of the late
 SELF_PLAY_EPSILON = 0.2       # share of random moves in self-play, for variety
 SELF_PLAY_SEARCH_TURNS = 0    # turns of lookahead for the best net in self-play (0 = none, it just plays by the net)...
 SELF_PLAY_SEARCH_KEEP = 3     # ...trying this many moves at each step. Older nets it plays against never search.
+SEARCH_LABEL_SHARE = 0        # share of recorded positions labeled by the lookahead's value instead of only the game result (0 = none)...
+SEARCH_LABEL_WEIGHT = 0.5     # ...label = (1 - this) * game result + this * the lookahead's value
+SEARCH_LABEL_TURNS = 2        # the lookahead used for those labels (turns ahead)...
+SEARCH_LABEL_KEEP = 3         # ...and moves tried at each step
+SELF_PLAY_OPPONENTS_SEARCH = False   # True: the nets it plays against look ahead too (same turns and keep), not just the best net
+BASELINE_SHARE = 0            # share of self-play games played against the nets in baselines/ (0 = none), split evenly between them
 OLDER_NET_WEIGHT = 0.5        # in self-play, each net one step older is this much less likely to be the opponent
 
 # How many recent batches of games a new net trains on. Games played by an older best net no longer match how the

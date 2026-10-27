@@ -72,6 +72,15 @@ class ProgressTimingTests(unittest.TestCase):
             progress.step("next generation")
             self.assertEqual(progress.snapshot()["step_durations"], [5.0, 10.0, 15.0])
 
+    def test_the_detail_line_stays_until_it_is_replaced(self):
+        progress = Progress()
+        progress.start(None, None, 100)
+        progress.set_detail("opponents: gen 5 80%")
+        progress.step("training")
+        self.assertEqual(progress.snapshot()["detail"], "opponents: gen 5 80%")
+        progress.start(None, None, 100)
+        self.assertIsNone(progress.snapshot()["detail"])
+
     def test_game_counts_are_cleared_when_the_next_step_starts(self):
         progress = Progress()
         progress.start(None, None, 100)

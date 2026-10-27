@@ -57,9 +57,11 @@ def _in_parallel(work_function, num_games):
     finally:
         done.set()
 
-def play_game(white_player, black_player, record=True):
+def play_game(white_player, black_player, record=True, labeler=None, label_weight=0.5):
     """Returns (positions, labels, winner). Each position is recorded from the
-    side of the player who just acted; label = +1 if they went on to win, else -1."""
+    side of the player who just acted; label = +1 if they went on to win, else -1.
+    With a `labeler` (see search.make_value_labeler), positions it gives a value for are labeled
+    (1 - label_weight) * (+1 or -1) + label_weight * that value instead."""
 
     state, history = new_game(), []
 
@@ -70,17 +72,22 @@ def play_game(white_player, black_player, record=True):
 
         if record:
             # the position seen from the side that just acted, as a batch of one
-            history.append((encode_batch(np.array([state.owner]), np.array([state.kind]), np.array([state.height]),
-                                         actor, [state.to_move == actor])[0], actor))
+            position = encode_batch(np.array([state.owner]), np.array([state.kind]), np.array([state.height]),
+                                    actor, [state.to_move == actor])[0]
+            value = labeler(state, actor) if labeler and state.result == 0 else None
+            history.append((position, actor, value))
 
-    positions = [position for position, _ in history]
-    labels = [1.0 if actor == state.result else -1.0 for _, actor in history]
+    positions = [position for position, _, _ in history]
+    labels = [(1.0 if actor == state.result else -1.0) if value is None
+              else (1 - label_weight) * (1.0 if actor == state.result else -1.0) + label_weight * value
+              for _, actor, value in history]
 
     return positions, labels, state.result
 
-def generate_training_data(player, opponents, num_games, weights=None):
+def generate_training_data(player, opponents, num_games, weights=None, labeler=None, label_weight=0.5):
     """Play many games and return (inputs, targets) training arrays. Each game's opponent is drawn at
-    random from `opponents`, with probabilities `weights` (equal if None). Alternates who is White."""
+    random from `opponents`, with probabilities `weights` (equal if None). Alternates who is White.
+    `labeler` and `label_weight` are passed on to play_game."""
 
     choices = random_generator.choice(len(opponents), size=num_games, p=weights)
 
@@ -90,7 +97,7 @@ def generate_training_data(player, opponents, num_games, weights=None):
         for game_number in game_numbers:
             opponent = opponents[choices[game_number]]
             white, black = (player, opponent) if game_number % 2 == 0 else (opponent, player)
-            positions, labels, _ = play_game(white, black)
+            positions, labels, _ = play_game(white, black, labeler=labeler, label_weight=label_weight)
             _count_game()
             game_inputs += positions
             game_targets += labels

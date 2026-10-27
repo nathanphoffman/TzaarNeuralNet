@@ -11,6 +11,7 @@ from tzaar.nets.games import generate_training_data, win_rate
 from tzaar.learning.policy import apply_donors, epochs_for, games_for, is_borderline, self_play_opponents
 from tzaar.nets.network import Network
 from tzaar.nets.players import make_net_player, random_player
+from tzaar.nets.search import make_value_labeler
 from tzaar.nets.rating import elo_gap, rate_net
 from tzaar.runs.progress import progress
 
@@ -46,8 +47,17 @@ def play_self_play_games(generation, rated_nets, near_misses, batches):
     explorer, opponents, weights, labels = self_play_opponents(rated_nets, near_misses)
     opponent_mix = ", ".join(f"{label} {weight:.0%}" for label, weight in zip(labels, weights) if weight >= settings.MIN_SHARE_TO_PRINT)
     print(f"   gen {generation}: self-play opponents: {opponent_mix}")
+    looks_ahead = (f"; the best net looks {settings.SELF_PLAY_SEARCH_TURNS} turns ahead" if settings.SELF_PLAY_SEARCH_TURNS else "")
+    labels_by_search = (f"; {settings.SEARCH_LABEL_SHARE:.0%} of positions labeled by lookahead" if settings.SEARCH_LABEL_SHARE else "")
+    progress.set_detail(f"Generation {generation} self-play opponents: {opponent_mix} (* = near miss){looks_ahead}{labels_by_search}")
 
-    batch = generate_training_data(explorer, opponents, self_play_games, weights)
+    labeler = None
+
+    if settings.SEARCH_LABEL_SHARE:
+        labeler = make_value_labeler(rated_nets[-1][1], settings.SEARCH_LABEL_TURNS, settings.SEARCH_LABEL_KEEP,
+                                     settings.SEARCH_LABEL_SHARE)
+
+    batch = generate_training_data(explorer, opponents, self_play_games, weights, labeler, settings.SEARCH_LABEL_WEIGHT)
     save_batch(batch, rated_nets[-1][0], settings.BATCHES_TO_KEEP)
 
     return (batches + [batch])[-settings.BATCHES_TO_KEEP:]

@@ -149,6 +149,7 @@
       <div><strong id="status">Starting...</strong></div>
       <div class="sub" id="elapsed"></div>
     </div>
+    <div class="sub" id="detail" hidden></div>
     <div class="meter" role="progressbar" aria-label="Training progress" id="meter"><div id="meter-fill" style="width:0%"></div></div>
   </section>
 
@@ -415,6 +416,7 @@ function render() {
     : 'Not training.';
   $('start').disabled = data.running;
   $('stop').disabled = !data.running;
+  $('detail').hidden = !data.detail; $('detail').textContent = data.detail || '';
   const fill = $('meter-fill');
   if (!fill.dataset.drawn) { fill.style.transition = 'none'; fill.dataset.drawn = '1'; }
   else fill.style.transition = '';
