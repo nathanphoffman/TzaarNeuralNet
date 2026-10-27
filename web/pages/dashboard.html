@@ -116,6 +116,16 @@
   th:first-child, td:first-child, th:last-child, td:last-child { text-align: left; }
   th { color: var(--ink-2); font-weight: 600; }
   #conn { color: var(--bad); }
+
+  /* start / stop training */
+  .train { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+  .train input[type=number] { width: 140px; font: inherit; padding: 3px 6px; color: var(--ink); background: var(--surface);
+    border: 1px solid var(--axis); border-radius: 6px; }
+  .train button { font: inherit; padding: 4px 14px; color: var(--ink); background: var(--surface);
+    border: 1px solid var(--axis); border-radius: 6px; cursor: pointer; }
+  .train button.go:not(:disabled) { background: var(--meter-fill); border-color: var(--meter-fill); color: #fff; }
+  .train button:disabled { opacity: 0.45; cursor: default; }
+  #train-msg { color: var(--ink-2); font-size: 14px; }
 </style>
 </head>
 <body>
@@ -123,6 +133,13 @@
   <header>
     <h1>Tzaar training</h1>
     <p class="sub"><label>Model <select id="model"></select></label></p>
+    <p class="sub train">
+      <label>Generations <input type="number" id="gens" min="1" placeholder="until stopped"></label>
+      <label>Workers <input type="number" id="workers" min="1" max="64" placeholder="from config"></label>
+      <button class="go" id="start" disabled>Start training</button>
+      <button id="stop" disabled>Stop</button>
+      <span id="train-msg"></span>
+    </p>
     <p class="sub" id="status-line">Connecting...</p>
     <p class="sub" id="conn" hidden>Can't reach the training process. It may have finished or been stopped.</p>
   </header>
@@ -332,7 +349,7 @@ function projectionForDomain(rows) {
 }
 
 /* ---------- polling ---------- */
-let model = null, pollTimer = null;
+let model = null, pollTimer = null, keepPollingUntil = 0;   // after Start or Stop, keep polling while the run starts up or shuts down
 async function poll() {
   const asked = model;
   let wait = 1500;
@@ -343,7 +360,7 @@ async function poll() {
     data = fresh; fetchedAt = Date.now();
     $('conn').hidden = true;
     render();
-    if (!data.running) return;
+    if (!data.running && Date.now() > keepPollingUntil) return;
   } catch (e) {
     if (asked !== model) return;
     $('conn').hidden = false; wait = 3000;
@@ -356,6 +373,24 @@ function pickModel(name) {
   clearTimeout(pollTimer);
   poll();
 }
+async function trainRequest(path, body, doneMessage) {
+  $('train-msg').textContent = '';
+  try {
+    const r = await fetch(path, {method: 'POST', headers: {'X-Tzaar': '1'}, body: JSON.stringify(body)});
+    const reply = await r.json();
+    $('train-msg').textContent = reply.error || doneMessage;
+    if (reply.error) return;
+  } catch (e) {
+    $('train-msg').textContent = "Can't reach the dashboard.";
+    return;
+  }
+  keepPollingUntil = Date.now() + 60000;
+  clearTimeout(pollTimer);
+  poll();
+}
+$('start').onclick = () => trainRequest('/api/train', {model, generations: Number($('gens').value) || null, workers: Number($('workers').value) || null}, 'Starting...');
+$('stop').onclick = () => trainRequest('/api/stop', {model}, 'Stopping after the current step...');
+
 async function start() {
   const names = await (await fetch('/api/models')).json();
   names.forEach(n => $('model').appendChild(new Option(n, n)));
@@ -373,10 +408,13 @@ function showElapsed() {
 
 /* ---------- page pieces ---------- */
 function render() {
-  $('status').textContent = data.running ? data.status : (data.summary || 'Done');
+  const games = data.running && data.games_total ? ` — ${data.games_done.toLocaleString()} / ${data.games_total.toLocaleString()} games played` : '';
+  $('status').textContent = data.running ? data.status + games : (data.summary || 'Done');
   $('status-line').textContent = data.running
-    ? (data.total_generations === null ? 'Running until you stop it (Ctrl+C). This page updates by itself.' : 'Training in progress. This page updates by itself.')
-    : 'Training finished.';
+    ? (data.total_generations === null ? 'Running until you press Stop. This page updates by itself.' : 'Training in progress. This page updates by itself.')
+    : 'Not training.';
+  $('start').disabled = data.running;
+  $('stop').disabled = !data.running;
   const fill = $('meter-fill');
   if (!fill.dataset.drawn) { fill.style.transition = 'none'; fill.dataset.drawn = '1'; }
   else fill.style.transition = '';

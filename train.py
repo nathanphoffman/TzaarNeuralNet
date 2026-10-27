@@ -43,7 +43,7 @@ def train_all(args, names):
 
     print("Training:", ", ".join(names))
 
-    if not run_models(names, args.generations, args.fresh):
+    if not run_models(names, args.generations, args.fresh, args.workers):
         print("\nStopped. Everything up to the last finished generation is saved; run again to continue.")
 
         return
@@ -60,12 +60,15 @@ if __name__ == "__main__":
     parser.add_argument("--fresh", action="store_true",
                         help="throw away saved progress and start over (needs --models, so no model is wiped by accident)")
 
+    parser.add_argument("--workers", type=int, default=None,
+                        help="game-playing processes per model (default: from the model's config.json, else 6)")
+
     parser.add_argument("--no-dashboard", action="store_true", help="don't start the live dashboard")
     parser.add_argument("--child", help=argparse.SUPPRESS)       # used internally: train this one model in this process
     args = parser.parse_args()
 
     if args.child:
-        run_model(args.child, args.generations, args.fresh)
+        run_model(args.child, args.generations, args.fresh, args.workers)
     else:
         available = list_models()
         names = args.models or available

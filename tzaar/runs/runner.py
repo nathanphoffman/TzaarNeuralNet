@@ -3,11 +3,13 @@
 train.py starts a child process for each model (run_model below runs inside it) and prefixes each line
 of its output with the model's name."""
 
+import signal
 import subprocess
 import sys
 import threading
 from pathlib import Path
 
+from tzaar.nets import games
 from tzaar.runs.config import apply_config, load_config
 from tzaar.nets.model_store import model_dir, use_model
 from tzaar.runs.progress import progress
@@ -15,11 +17,17 @@ from tzaar.learning.training import train_model
 
 TRAIN_SCRIPT = Path(__file__).resolve().parent.parent.parent / "train.py"
 
-def run_model(name, generations, fresh):
-    """Runs inside a model's own process."""
+def run_model(name, generations, fresh, workers=None):
+    """Runs inside a model's own process. `workers` (if given) overrides the model's config.json."""
+    signal.signal(signal.SIGINT, signal.default_int_handler)     # stop on Ctrl+C even if started from a background job
     use_model(name)
     apply_config(load_config(name))
+
+    if workers:
+        games.WORKERS = workers
+
     progress.attach(model_dir() / "progress.json")
+    games.progress_callback = progress.set_games
 
     try:
         train_model(generations, fresh)
@@ -34,7 +42,7 @@ def _copy_output(process, name):
     for line in process.stdout:
         print(f"[{name}] {line}", end="", flush=True)
 
-def start_child(name, generations, fresh):
+def start_child(name, generations, fresh, workers=None):
     """Start the training process of one model. Returns it with the thread that copies its output."""
 
     command = [sys.executable, "-u", str(TRAIN_SCRIPT), "--child", name]
@@ -44,6 +52,9 @@ def start_child(name, generations, fresh):
 
     if fresh:
         command.append("--fresh")
+
+    if workers:
+        command += ["--workers", str(workers)]
 
     process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     thread = threading.Thread(target=_copy_output, args=(process, name), daemon=True)
@@ -56,10 +67,10 @@ def wait_for(children):
         process.wait()
         thread.join()
 
-def run_models(names, generations, fresh):
+def run_models(names, generations, fresh, workers=None):
     """Start a process per model and wait until all of them have finished. Returns False if Ctrl+C stopped them."""
 
-    children = [start_child(name, generations, fresh) for name in names]
+    children = [start_child(name, generations, fresh, workers) for name in names]
 
     try:
         wait_for(children)

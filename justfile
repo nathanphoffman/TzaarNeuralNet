@@ -19,3 +19,7 @@ test:
 # Rate the baseline nets and every model's best net against each other (e.g. `just benchmark --games 200`)
 benchmark *args:
     uv run benchmark.py {{args}}
+
+# Open the training dashboard and start or stop training from the page (http://localhost:8002)
+dashboard:
+    uv run dashboard.py

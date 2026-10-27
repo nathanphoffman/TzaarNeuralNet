@@ -1,5 +1,6 @@
 """Playing games, recording them as training data, and measuring strength."""
 import multiprocessing
+import threading
 
 import numpy as np
 
@@ -13,7 +14,15 @@ from tzaar.rules.rng import random_generator
 SEED_RANGE = 2 ** 32           # workers get a random seed below this
 WORKERS = 6                   # processes that play games at the same time
 
+PROGRESS_SECONDS = 1.0        # how often the number of finished games is reported
+
 _job = None                   # the work for the current batch of games; set before the workers are forked
+_finished = None              # games finished so far in the current batch, shared with the workers (also set before the fork)
+progress_callback = None      # called as progress_callback(games_finished, games_in_batch) while a batch is being played
+
+def _count_game():
+    with _finished.get_lock():
+        _finished.value += 1
 
 def _run_chunk(args):
     """Runs in a worker: play one slice of the games with its own random stream."""
@@ -26,13 +35,27 @@ def _in_parallel(work_function, num_games):
     """Split games 0..num_games-1 over the workers and return each worker's result from job(game_numbers).
     The workers are forked, so they inherit the players (which are functions and can't be sent between processes)."""
 
-    global _job
+    global _job, _finished
     _job = work_function
+    _finished = multiprocessing.get_context("fork").Value("i", 0)
     chunks = [chunk for chunk in np.array_split(np.arange(num_games), WORKERS) if len(chunk)]
     seeds = random_generator.integers(SEED_RANGE, size=len(chunks))
+    done = threading.Event()
 
-    with multiprocessing.get_context("fork").Pool(len(chunks)) as pool:
-        return pool.map(_run_chunk, list(zip(chunks, seeds)))
+    def report():
+        while not done.wait(PROGRESS_SECONDS):
+            progress_callback(_finished.value, num_games)
+
+    reporter = threading.Thread(target=report, daemon=True) if progress_callback else None
+
+    if reporter:
+        reporter.start()
+
+    try:
+        with multiprocessing.get_context("fork").Pool(len(chunks)) as pool:
+            return pool.map(_run_chunk, list(zip(chunks, seeds)))
+    finally:
+        done.set()
 
 def play_game(white_player, black_player, record=True):
     """Returns (positions, labels, winner). Each position is recorded from the
@@ -68,6 +91,7 @@ def generate_training_data(player, opponents, num_games, weights=None):
             opponent = opponents[choices[game_number]]
             white, black = (player, opponent) if game_number % 2 == 0 else (opponent, player)
             positions, labels, _ = play_game(white, black)
+            _count_game()
             game_inputs += positions
             game_targets += labels
 
@@ -94,6 +118,8 @@ def win_rate(player_a, player_b, num_games):
             else:
                 _, _, winner = play_game(player_b, player_a, record=False)
                 wins += winner == -1
+
+            _count_game()
 
         return int(wins)
 

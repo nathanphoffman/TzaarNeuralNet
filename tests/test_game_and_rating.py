@@ -45,3 +45,19 @@ class GameTests(unittest.TestCase):
         positions, labels, _ = play_game(random_player, random_player)
         self.assertEqual(len(positions), len(labels))
         self.assertTrue(set(labels) <= {1.0, -1.0})
+
+class GameCountTests(unittest.TestCase):
+    def test_finished_games_are_reported_while_a_batch_is_played(self):
+        from tzaar.nets import games
+
+        reports = []
+        original = games.progress_callback, games.PROGRESS_SECONDS
+        games.progress_callback, games.PROGRESS_SECONDS = lambda done, total: reports.append((done, total)), 0.05
+
+        try:
+            games.win_rate(random_player, random_player, 24)
+        finally:
+            games.progress_callback, games.PROGRESS_SECONDS = original
+
+        self.assertTrue(all(total == 24 for _, total in reports))
+        self.assertTrue(all(0 <= done <= 24 for done, _ in reports))
