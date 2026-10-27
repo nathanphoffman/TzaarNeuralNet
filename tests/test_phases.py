@@ -10,7 +10,7 @@ def verdict(accepted=False, score=0.45):
 
 class PhaseTests(unittest.TestCase):
     def setUp(self):
-        for name in ("SMART_PHASE_GENERATIONS", "SMART_PHASE_SETTINGS", "SELF_PLAY_SEARCH_TURNS", "CURRENT_PHASE"):
+        for name in ("SMART_PHASE_GENERATIONS", "SMART_PHASE_SETTINGS", "SELF_PLAY_SEARCH_TURNS", "CURRENT_PHASE", "CURRENT_PHASE_NOTE"):
             self.addCleanup(setattr, settings, name, getattr(settings, name))
 
         settings.SMART_PHASE_GENERATIONS = 3
@@ -35,6 +35,17 @@ class PhaseTests(unittest.TestCase):
         phases.end_generation(2, "b", verdict(accepted=True), near_misses)
         phases.start_generation()
         self.assertEqual((settings.SELF_PLAY_SEARCH_TURNS, settings.CURRENT_PHASE), (0, "plain"))
+
+    def test_the_note_counts_the_smart_generations_towards_the_cap(self):
+        phases, near_misses = Phases(), []
+        phases.start_generation()
+        self.assertEqual(settings.CURRENT_PHASE_NOTE, "")
+        phases.end_generation(1, "a", verdict(accepted=True), near_misses)
+        phases.start_generation()
+        self.assertEqual(settings.CURRENT_PHASE_NOTE, "generation 1 of 3 without an accepted net")
+        phases.end_generation(2, "b", verdict(), near_misses)
+        phases.start_generation()
+        self.assertEqual(settings.CURRENT_PHASE_NOTE, "generation 2 of 3 without an accepted net")
 
     def test_plain_rejects_never_switch(self):
         phases, near_misses = Phases(), []

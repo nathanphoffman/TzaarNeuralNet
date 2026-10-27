@@ -33,6 +33,8 @@ class Phases:
             setattr(settings, name, value if self.smart else self._normal[name])
 
         settings.CURRENT_PHASE = "smart" if self.smart else "plain"
+        settings.CURRENT_PHASE_NOTE = (f"generation {self.generations_in_smart + 1} of {settings.SMART_PHASE_GENERATIONS} "
+                                       "without an accepted net" if self.smart else "")
 
     def end_generation(self, generation, challenger, verdict, near_misses):
         """Switch phase if this generation's result says so. Adds to `near_misses` when a smart phase hands back empty-handed."""

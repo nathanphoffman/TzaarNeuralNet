@@ -48,7 +48,8 @@ def play_self_play_games(generation, rated_nets, near_misses, batches):
     opponent_mix = ", ".join(f"{label} {weight:.0%}" for label, weight in zip(labels, weights) if weight >= settings.MIN_SHARE_TO_PRINT)
     print(f"   gen {generation}: self-play opponents: {opponent_mix}")
     looks_ahead = (f"; the best net looks {settings.SELF_PLAY_SEARCH_TURNS} turns ahead" if settings.SELF_PLAY_SEARCH_TURNS else "")
-    phase = f"; {settings.CURRENT_PHASE} phase" if settings.CURRENT_PHASE else ""
+    note = f" ({settings.CURRENT_PHASE_NOTE})" if settings.CURRENT_PHASE_NOTE else ""
+    phase = f"; {settings.CURRENT_PHASE} phase{note}" if settings.CURRENT_PHASE else ""
     labels_by_search = (f"; {settings.SEARCH_LABEL_SHARE:.0%} of positions labeled by lookahead" if settings.SEARCH_LABEL_SHARE else "")
     progress.set_detail(f"Generation {generation} self-play opponents: {opponent_mix} (* = near miss){looks_ahead}{labels_by_search}{phase}")
 

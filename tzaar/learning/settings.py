@@ -62,7 +62,8 @@ RECENT_DONOR_WINDOW = 0       # 0 = off. If set (e.g. 5), one of the DONORS_TO_K
 # {"SELF_PLAY_SEARCH_TURNS": 2, "SELF_PLAY_OPPONENTS_SEARCH": true} or {"SEARCH_LABEL_SHARE": 0.3}. Not saved: a restart begins in the plain phase.
 SMART_PHASE_GENERATIONS = 0
 SMART_PHASE_SETTINGS = {}
-CURRENT_PHASE = ""            # "plain" or "smart" while phases are on; set by the training, shown on the dashboard
+CURRENT_PHASE = ""            # "plain" or "smart" while phases are on; set by the training, shown on the dashboard...
+CURRENT_PHASE_NOTE = ""       # ...with this (how far a smart phase is from its cap)
 PROVEN_HIDDEN = 64            # the first neurons: well tuned, always from the best net, so a donor can't unsettle them
 
 # A net that fails narrowly gets one re-test against the best net before it is rejected, because a
