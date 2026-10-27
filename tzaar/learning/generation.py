@@ -6,7 +6,7 @@ from datetime import datetime
 import numpy as np
 
 from tzaar.learning import settings
-from tzaar.learning.checkpoint import GENERATION_KEY, RATING_KEY
+from tzaar.learning.checkpoint import GENERATION_KEY, RATING_KEY, save_batch
 from tzaar.nets.games import generate_training_data, win_rate
 from tzaar.learning.policy import apply_donors, epochs_for, games_for, is_borderline, self_play_opponents
 from tzaar.nets.network import Network
@@ -47,7 +47,10 @@ def play_self_play_games(generation, rated_nets, near_misses, batches):
     opponent_mix = ", ".join(f"{label} {weight:.0%}" for label, weight in zip(labels, weights) if weight >= settings.MIN_SHARE_TO_PRINT)
     print(f"   gen {generation}: self-play opponents: {opponent_mix}")
 
-    return (batches + [generate_training_data(explorer, opponents, self_play_games, weights)])[-settings.BATCHES_TO_KEEP:]
+    batch = generate_training_data(explorer, opponents, self_play_games, weights)
+    save_batch(batch, rated_nets[-1][0], settings.BATCHES_TO_KEEP)
+
+    return (batches + [batch])[-settings.BATCHES_TO_KEEP:]
 
 def train_challenger(generation, rated_nets, donors, batches):
     """A new net trained on the recent batches: a copy of the best net (with the donors' weights) or a fresh one."""

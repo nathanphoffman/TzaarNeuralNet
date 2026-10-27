@@ -11,3 +11,6 @@ __pycache__/
 
 # Near-miss nets: only needed to resume training, and they add up fast
 models/*/checkpoint/miss_*.npz
+
+# Saved self-play games, so a restart doesn't replay them: hundreds of MB each
+models/*/checkpoint/batch_*.npz

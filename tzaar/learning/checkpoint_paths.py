@@ -20,3 +20,8 @@ def net_path(kind, generation, name=None):
     """kind is "net" (accepted) or "miss" (a near-miss that was rejected but kept as an opponent)."""
 
     return model_dir(name) / CHECKPOINT_FOLDER / f"{kind}_gen{generation:04d}.npz"
+
+def batch_path(stamp):
+    """A saved batch of self-play games, named by when it was made so the newest sorts last."""
+
+    return model_dir() / CHECKPOINT_FOLDER / f"batch_{stamp}.npz"

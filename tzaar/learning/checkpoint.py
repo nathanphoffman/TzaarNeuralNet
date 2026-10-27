@@ -6,9 +6,12 @@ training at any time and the next run continues from the last finished generatio
 
 import json
 import shutil
+import time
+
+import numpy as np
 
 from tzaar.rules.encoding import NUM_FEATURES
-from tzaar.learning.checkpoint_paths import checkpoint_dir, donor_path, history_path, net_path, old_donor_path
+from tzaar.learning.checkpoint_paths import batch_path, checkpoint_dir, donor_path, history_path, net_path, old_donor_path
 from tzaar.nets.model_store import load_net, model_path, save_net
 
 GENERATION_KEY = "generation"      # the keys used in history.json and in the rows of the history
@@ -91,6 +94,45 @@ def load_checkpoint():
 
     return (saved[HISTORY_KEY], load_saved_nets("net", saved[NETS_KEY]), load_saved_nets("miss", saved.get("near_misses", [])),
             saved.get("rating_basis", 1), donors)
+
+def save_batch(batch, best_generation, keep):
+    """Save a batch of self-play games (inputs, targets), played by the best net of `best_generation`, so a restart
+    doesn't have to play them again. Only the newest `keep` batches are kept."""
+
+    inputs, targets = batch
+    path = batch_path(time.time_ns())
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = path.with_suffix(".tmp")
+
+    with open(temp_path, "wb") as file:
+        np.savez(file, inputs=inputs, targets=targets, best_generation=best_generation)
+
+    temp_path.replace(path)
+
+    for old in sorted(checkpoint_dir().glob("batch_*.npz"))[:-keep]:
+        old.unlink()
+
+def load_batches(best_generation, count):
+    """The newest `count` saved batches that were played by the best net of `best_generation` (older ones no longer
+    match how the best net plays), oldest first. Batches made with a different set of inputs are skipped."""
+
+    found = []
+
+    for path in sorted(checkpoint_dir().glob("batch_*.npz"), reverse=True):
+        if len(found) == count:
+            break
+
+        saved = np.load(path)
+
+        if int(saved["best_generation"]) != best_generation:
+            continue
+
+        inputs, targets = saved["inputs"], saved["targets"]         # each access reads the file again, so only once
+
+        if inputs.shape[1] == NUM_FEATURES:
+            found.append((inputs, targets))
+
+    return found[::-1]
 
 def clear_checkpoint():
     shutil.rmtree(checkpoint_dir(), ignore_errors=True)

@@ -7,7 +7,8 @@ saved (see checkpoint.py), and the next run carries on from there.
 import itertools
 
 from tzaar.learning import settings
-from tzaar.learning.checkpoint import GENERATION_KEY, RATING_BASIS, clear_checkpoint, load_checkpoint, save_checkpoint
+from tzaar.learning.checkpoint import (GENERATION_KEY, RATING_BASIS, clear_checkpoint, load_batches, load_checkpoint, save_batch,
+                                       save_checkpoint)
 from tzaar.learning.generation import (add_row, file_challenger, play_self_play_games, report_verdict, retest_borderline,
                                        test_challenger, train_challenger)
 
@@ -43,15 +44,29 @@ def start_new_run():
     return history, rated_nets, [], [(inputs, targets)]
 
 def rebuild_batches(rated_nets, near_misses, next_generation):
-    """The saved checkpoint doesn't include training data, so make fresh self-play batches
-    (one fewer than we keep; the first generation adds the last one)."""
+    """The batches of games to start from (one fewer than we keep; the first generation adds the last one): the saved
+    batches the current best net played, and fresh self-play games for whatever is missing."""
+
+    best_generation = rated_nets[-1][0]
+    saved = load_batches(best_generation, settings.BATCHES_TO_KEEP - 1)
+    missing = settings.BATCHES_TO_KEEP - 1 - len(saved)
+
+    if not missing:
+        progress.step("Loading the saved training data")
+        print(f"Reusing {len(saved)} saved batch(es) of games played by gen {best_generation}")
+
+        return saved
 
     progress.step("Rebuilding training data from the best net")
     explorer, opponents, weights, _ = self_play_opponents(rated_nets, near_misses)
     games = games_for(next_generation, settings.MAX_SELF_PLAY_GAMES)
+    fresh = []
 
-    return [generate_training_data(explorer, opponents, games, weights)
-            for _ in range(settings.BATCHES_TO_KEEP - 1)]
+    for _ in range(missing):
+        fresh.append(generate_training_data(explorer, opponents, games, weights))
+        save_batch(fresh[-1], best_generation, settings.BATCHES_TO_KEEP)
+
+    return saved + fresh
 
 def rebase_best_rating(rated_nets, games):
     """Checkpoints from before the new rating rule rated nets with the random player averaged in,
