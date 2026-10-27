@@ -1,17 +1,40 @@
 """The rules training follows: how much to play and train at each stage, who counts as a worthy opponent,
 and how to tell a narrow fail from a clear one."""
 
+import functools
 from pathlib import Path
 
 import numpy as np
 
 from tzaar.learning import settings
+from tzaar.nets import model_store
 from tzaar.nets.model_store import load_net
 from tzaar.nets.players import make_net_player
 from tzaar.nets.search import make_search_player
 from tzaar.rules.encoding import SIGNALS_START
 
 BASELINES = Path(__file__).resolve().parent.parent.parent / "baselines"
+
+PROJECT_ROOT = BASELINES.parent
+
+@functools.lru_cache(maxsize=None)
+def _load_partner(path):
+    if not Path(path).exists():
+        raise FileNotFoundError(f"SPARRING_PARTNER: no net at {path}")
+
+    return load_net(path)
+
+def sparring_partner():
+    """The net named by SPARRING_PARTNER (loaded once), or None if there is none."""
+
+    name = settings.SPARRING_PARTNER
+
+    if not name:
+        return None
+
+    path = PROJECT_ROOT / name if name.endswith(".npz") else model_store.MODELS_ROOT / name / "model.npz"
+
+    return _load_partner(str(path))
 
 def epochs_for(rating):
     """A weak net learns a lot from each pass over the data, a strong one mostly picks up noise."""
@@ -66,6 +89,19 @@ def self_play_opponents(rated_nets, near_misses):
         labels += [path.stem for path in paths]
         weights = np.concatenate([weights * (1 - settings.BASELINE_SHARE),
                                   np.full(len(paths), settings.BASELINE_SHARE / len(paths))])
+
+    partner = sparring_partner()
+
+    if partner is not None and settings.SPARRING_SHARE:
+        if settings.SPARRING_PARTNER_TURNS:
+            player = make_search_player(partner, settings.SPARRING_PARTNER_TURNS, settings.SPARRING_PARTNER_KEEP,
+                                        epsilon=settings.SELF_PLAY_EPSILON)
+        else:
+            player = make_net_player(partner, epsilon=settings.SELF_PLAY_EPSILON)
+
+        players.append(player)
+        labels.append(f"partner {Path(settings.SPARRING_PARTNER).stem}")
+        weights = np.append(weights * (1 - settings.SPARRING_SHARE), settings.SPARRING_SHARE)
 
     return players[0], players, weights, labels
 

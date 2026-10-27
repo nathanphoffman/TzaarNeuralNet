@@ -8,7 +8,8 @@ import numpy as np
 from tzaar.learning import settings
 from tzaar.learning.checkpoint import GENERATION_KEY, RATING_KEY, save_batch
 from tzaar.nets.games import generate_training_data, win_rate
-from tzaar.learning.policy import apply_donors, epochs_for, games_for, is_borderline, lasting_donors_to_keep, self_play_opponents
+from tzaar.learning.policy import (apply_donors, epochs_for, games_for, is_borderline, lasting_donors_to_keep, self_play_opponents,
+                                   sparring_partner)
 from tzaar.nets.network import Network
 from tzaar.nets.players import make_net_player, random_player
 from tzaar.nets.search import make_value_labeler
@@ -128,6 +129,21 @@ def test_challenger(generation, challenger, rated_nets, match_games):
     borderline = not accepted and is_borderline(score_vs_best, rating, best_rating, score_vs_random)
 
     return Verdict(rating, score_vs_best, score_vs_random, accepted, near_miss, borderline)
+
+def score_vs_partner(network):
+    """How often `network` (plain) beats the sparring partner (plain) in SPARRING_TEST_GAMES games, or None if there is no
+    partner or the test is off."""
+
+    partner = sparring_partner()
+
+    if partner is None or not settings.SPARRING_TEST_GAMES:
+        return None
+
+    progress.set_status(f"Playing the sparring partner ({settings.SPARRING_TEST_GAMES} games)")
+    score = win_rate(make_net_player(network), make_net_player(partner), settings.SPARRING_TEST_GAMES)
+    print(f"   vs sparring partner {settings.SPARRING_PARTNER}: {score:.3f} over {settings.SPARRING_TEST_GAMES} games")
+
+    return score
 
 def report_verdict(generation, verdict):
     # picks the first line that fits: accepted, kept as a near miss, or plain rejected

@@ -76,3 +76,22 @@ class WidthSettingTests(unittest.TestCase):
         self.assertEqual(Network().W1.shape[1], 16)
         inputs = np.random.default_rng(0).random((5, narrow.W1.shape[0])).astype(np.float32)
         np.testing.assert_allclose(wide.predict(inputs), narrow.predict(inputs), atol=1e-5)
+
+    def test_widening_the_second_layer_keeps_the_scores_and_can_still_learn(self):
+        from tzaar.learning import settings
+        from tzaar.nets.network import Network
+        import numpy as np
+
+        for name in ("HIDDEN_NEURONS", "HIDDEN2_NEURONS"):
+            self.addCleanup(setattr, settings, name, getattr(settings, name))
+
+        net = Network(hidden=8)
+        net.U = np.random.default_rng(2).normal(size=net.U.shape).astype(np.float32)      # a trained second layer
+        settings.HIDDEN_NEURONS, settings.HIDDEN2_NEURONS = 12, settings.HIDDEN2_NEURONS * 2
+        wide = net.widened()
+        inputs = np.random.default_rng(0).random((5, net.W1.shape[0])).astype(np.float32)
+        np.testing.assert_allclose(wide.predict(inputs), net.predict(inputs), atol=1e-5)
+        self.assertEqual((wide.V.shape, wide.c.shape, wide.U.shape), ((12, 128), (128,), (128, 1)))
+        before = wide.U[net.U.shape[0]:].copy()
+        wide.train(inputs, np.ones(5, dtype=np.float32), epochs=3)
+        self.assertFalse(np.array_equal(wide.U[net.U.shape[0]:], before))      # the new neurons switch on

@@ -11,7 +11,6 @@ OUTPUT_WEIGHT_SPREAD = 0.3    # ...and of the weights to the output, which start
 DEFAULT_EPOCHS = 15
 DEFAULT_LEARNING_RATE = 0.05
 DEFAULT_BATCH_SIZE = 64
-HIDDEN2 = 64       # neurons in the second hidden layer; older nets without one get it added (see deepened)
 
 class Network:
     """inputs -> hidden -> 1 output (score from -1 = losing to +1 = winning).
@@ -30,7 +29,8 @@ class Network:
         self.add_second_layer(self)
 
     @staticmethod
-    def add_second_layer(network, hidden2=HIDDEN2):
+    def add_second_layer(network, hidden2=None):
+        hidden2 = hidden2 or settings.HIDDEN2_NEURONS
         network.V = random_generator.normal(0, INPUT_WEIGHT_SPREAD, (network.W1.shape[1], hidden2)).astype(np.float32)
         network.c = np.zeros(hidden2, dtype=np.float32)
         network.U = np.zeros((hidden2, 1), dtype=np.float32)
@@ -43,28 +43,36 @@ class Network:
 
         return other
 
-    def widened(self, hidden=None):
-        """A copy with more hidden neurons (settings.HIDDEN_NEURONS if not said) that scores every position exactly as this net does. The new
-        neurons start with zero weights from the inputs, so they output 0 and change nothing, and small random
-        weights to the output, so training can start using them."""
+    def widened(self, hidden=None, hidden2=None):
+        """A copy with more hidden neurons in the first layer (settings.HIDDEN_NEURONS if not said) and in the second layer
+        (settings.HIDDEN2_NEURONS), that scores every position exactly as this net does. New first-layer neurons start with
+        zero weights from the inputs, so they output 0 and change nothing, and small random weights to the output, so
+        training can start using them. New second-layer neurons have random weights in but zero weights out (as when
+        the layer was added), so they change nothing until training switches them on."""
 
         hidden = hidden or settings.HIDDEN_NEURONS
-        extra = hidden - self.W1.shape[1]
-
-        if extra <= 0:
-            return self.copy()
-
+        hidden2 = hidden2 or settings.HIDDEN2_NEURONS
         other = self.copy()
-        other.W1 = np.hstack([self.W1, np.zeros((NUM_FEATURES, extra), dtype=np.float32)])
-        other.b1 = np.concatenate([self.b1, np.zeros(extra, dtype=np.float32)])
-        other.W2 = np.vstack([self.W2, random_generator.normal(0, INPUT_WEIGHT_SPREAD, (extra, 1)).astype(np.float32)])
+        extra = hidden - other.W1.shape[1]
 
-        if self.V is not None:
-            other.V = np.vstack([self.V, np.zeros((extra, self.V.shape[1]), dtype=np.float32)])
+        if extra > 0:
+            other.W1 = np.hstack([other.W1, np.zeros((NUM_FEATURES, extra), dtype=np.float32)])
+            other.b1 = np.concatenate([other.b1, np.zeros(extra, dtype=np.float32)])
+            other.W2 = np.vstack([other.W2, random_generator.normal(0, INPUT_WEIGHT_SPREAD, (extra, 1)).astype(np.float32)])
+
+            if other.V is not None:
+                other.V = np.vstack([other.V, np.zeros((extra, other.V.shape[1]), dtype=np.float32)])
+
+        extra2 = 0 if other.V is None else hidden2 - other.V.shape[1]
+
+        if extra2 > 0:
+            other.V = np.hstack([other.V, random_generator.normal(0, INPUT_WEIGHT_SPREAD, (other.V.shape[0], extra2)).astype(np.float32)])
+            other.c = np.concatenate([other.c, np.zeros(extra2, dtype=np.float32)])
+            other.U = np.vstack([other.U, np.zeros((extra2, 1), dtype=np.float32)])
 
         return other
 
-    def deepened(self, hidden2=HIDDEN2):
+    def deepened(self, hidden2=None):
         """A copy with a second hidden layer added that scores every position exactly as this net does:
         its weights to the output (U) start at zero, so it adds nothing yet, and training can then switch it on."""
 

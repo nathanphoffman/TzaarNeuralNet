@@ -10,12 +10,12 @@ from tzaar.learning import settings
 from tzaar.learning.checkpoint import (GENERATION_KEY, RATING_BASIS, clear_checkpoint, load_batches, load_checkpoint, save_batch,
                                        save_checkpoint)
 from tzaar.learning.generation import (add_row, file_challenger, play_self_play_games, report_verdict, retest_borderline,
-                                       test_challenger, train_challenger)
+                                       score_vs_partner, test_challenger, train_challenger)
 
 from tzaar.nets.games import generate_training_data, win_rate
 from tzaar.learning.phases import Phases
 from tzaar.learning.policy import RollingDonor, games_for, self_play_opponents
-from tzaar.nets.network import HIDDEN2, Network
+from tzaar.nets.network import Network
 from tzaar.nets.players import make_net_player, random_player
 from tzaar.nets.rating import elo_gap, rate_net
 from tzaar.runs.progress import progress
@@ -99,6 +99,10 @@ def run_self_play_generations(generations, history, rated_nets, near_misses, bat
 
     rolling = RollingDonor()
     phases = Phases()
+    start_row = next((row for row in history if row[GENERATION_KEY] == rated_nets[-1][0]), None)
+
+    if start_row is not None and start_row.get("vs_partner") is None:         # how far the net we start from is from the partner
+        start_row["vs_partner"] = score_vs_partner(rated_nets[-1][1])
 
     for generation in numbers:
         phases.start_generation()
@@ -111,8 +115,9 @@ def run_self_play_generations(generations, history, rated_nets, near_misses, bat
             retest_borderline(generation, challenger, rated_nets, verdict)
 
         report_verdict(generation, verdict)
+        vs_partner = score_vs_partner(challenger) if verdict.accepted else None
         add_row(history, generation, verdict.rating, verdict.score_vs_random, match_games, vs_best=verdict.score_vs_best,
-                accepted=verdict.accepted, near_miss=verdict.near_miss, retest=verdict.retest)
+                accepted=verdict.accepted, near_miss=verdict.near_miss, retest=verdict.retest, vs_partner=vs_partner)
 
         donors = file_challenger(generation, challenger, verdict, rated_nets, near_misses, donors)
 
@@ -135,14 +140,22 @@ def upgrade_best_net(rated_nets):
 
     generation, best, rating = rated_nets[-1]
 
-    if best.W1.shape[1] < settings.HIDDEN_NEURONS:
+    wider = best.W1.shape[1] < settings.HIDDEN_NEURONS
+    second_wider = best.V is not None and best.V.shape[1] < settings.HIDDEN2_NEURONS
+
+    if wider or second_wider:
         rated_nets[-1] = (generation, best.widened(), rating)
-        print(f"Widened the best net (gen {generation}) from {best.W1.shape[1]} to {settings.HIDDEN_NEURONS} hidden neurons")
+
+        if wider:
+            print(f"Widened the best net (gen {generation}) from {best.W1.shape[1]} to {settings.HIDDEN_NEURONS} hidden neurons")
+
+        if second_wider:
+            print(f"Widened the best net's second layer (gen {generation}) from {best.V.shape[1]} to {settings.HIDDEN2_NEURONS} neurons")
 
     if rated_nets[-1][1].V is None:             # a net saved before the second layer existed: add it (scores don't change)
         generation, best, rating = rated_nets[-1]
         rated_nets[-1] = (generation, best.deepened(), rating)
-        print(f"Added a second hidden layer of {HIDDEN2} neurons to the best net (gen {generation})")
+        print(f"Added a second hidden layer of {settings.HIDDEN2_NEURONS} neurons to the best net (gen {generation})")
 
 def start_fresh(generations):
     """No checkpoint: generation 0 from random games. Returns what the self-play generations need."""

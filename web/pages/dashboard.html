@@ -177,6 +177,11 @@
       <div class="value" id="tile-tested">–</div>
       <div class="note" id="tile-tested-note"></div>
     </div>
+    <div class="card tile" id="tile-partner-card" hidden>
+      <div class="label">Best net vs sparring partner</div>
+      <div class="value" id="tile-partner">–</div>
+      <div class="note" id="tile-partner-note"></div>
+    </div>
   </section>
 
   <section class="card">
@@ -470,6 +475,15 @@ function renderTiles() {
       : `${diff > 0 ? '▲ +' : '▼ '}${diff} Elo vs generation 0`;
   } else if (latest) {
     note.textContent = 'Generation 0 so far (random player = 0)';
+  }
+
+  const scored = rows.filter(r => r.vs_partner !== null && r.vs_partner !== undefined);
+  $('tile-partner-card').hidden = !scored.length;
+  if (scored.length) {
+    const last = scored[scored.length - 1], first = scored[0];
+    $('tile-partner').textContent = pct(last.vs_partner);
+    const partner = (data.info && data.info.settings && data.info.settings.SPARRING_PARTNER) || 'the partner';
+    $('tile-partner-note').textContent = `wins vs ${partner} (plain). ` + (scored.length > 1 ? `Started at ${pct(first.vs_partner)}.` : 'Starting point.');
   }
 
   const acceptedCount = tested.filter(r => r.accepted).length;

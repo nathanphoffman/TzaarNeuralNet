@@ -11,6 +11,7 @@ GAMES_PER_GENERATION = 20     # ...growing by this many games for each generatio
 # 670 MB; the limit is memory (12 GB machine), which is why BATCHES_TO_KEEP is small. Lower this if it runs out.
 HIDDEN_NEURONS = 256          # neurons in the first hidden layer. A saved net with fewer is widened to this when training resumes (it plays
                               # exactly as before); a net with more is left as it is. Older nets stay narrow and still serve as opponents.
+HIDDEN2_NEURONS = 64          # neurons in the second hidden layer, widened the same way (new neurons start switched off)
 MAX_SELF_PLAY_GAMES = 5000
 MAX_MATCH_GAMES = 600         # games per test match: enough that the score is accurate to about +-2 points
 WARM_START = True             # new nets start as a copy of the best net instead of from scratch
@@ -31,6 +32,12 @@ SEARCH_LABEL_WEIGHT = 0.5     # ...label = (1 - this) * game result + this * the
 SEARCH_LABEL_TURNS = 2        # the lookahead used for those labels (turns ahead)...
 SEARCH_LABEL_KEEP = 3         # ...and moves tried at each step
 SELF_PLAY_OPPONENTS_SEARCH = False   # True: the nets it plays against look ahead too (same turns and keep), not just the best net
+SPARRING_PARTNER = ""         # a net to train against: a model's name (its best net, models/<name>/model.npz) or a path ending in .npz
+                              # (e.g. "baselines/evo1_gen0432.npz", which never changes). "" = none. Its games are recorded like any others.
+SPARRING_SHARE = 0.5          # share of self-play games played against the partner
+SPARRING_PARTNER_TURNS = 0    # turns of lookahead the partner uses in those games (0 = it plays plainly)...
+SPARRING_PARTNER_KEEP = 3     # ...trying this many moves at each step
+SPARRING_TEST_GAMES = 200     # games each newly accepted net plays against the partner, plain vs plain, to see how far it has come (0 = none)
 BASELINE_SHARE = 0            # share of self-play games played against the nets in baselines/ (0 = none), split evenly between them
 OLDER_NET_WEIGHT = 0.5        # in self-play, each net one step older is this much less likely to be the opponent
 

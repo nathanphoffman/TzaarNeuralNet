@@ -1,9 +1,12 @@
 """Tests for per-model settings and the training policy."""
 import json
+import tempfile
 import unittest
+from pathlib import Path
 
 from tests.helpers import TemporaryModels
 from tzaar.learning import policy, settings
+from tzaar.learning import generation
 from tzaar.nets import model_store
 from tzaar.nets.network import Network
 from tzaar.rules.game import new_game
@@ -82,6 +85,49 @@ class TrainingHelperTests(unittest.TestCase):
         rolling.reject(7, "net", 0.48)
         self.assertEqual(len(rolling.donors_with([(7, "net", 0.48)])), 1)
         self.assertEqual(len(rolling.donors_with([(5, "old", 0.49)])), 2)
+
+    def test_sparring_partner_gets_its_share_and_a_label(self):
+        for name in ("SPARRING_PARTNER", "SPARRING_SHARE", "SPARRING_PARTNER_TURNS"):
+            self.addCleanup(setattr, settings, name, getattr(settings, name))
+
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        path = Path(folder.name) / "partner.npz"
+        model_store.save_net(Network(hidden=8), path)
+        rated = [(0, Network(hidden=8), 100.0)]
+        _, plain, plain_weights, _ = policy.self_play_opponents(rated, [])
+        settings.SPARRING_PARTNER, settings.SPARRING_SHARE = str(path), 0.4
+        _, players, weights, labels = policy.self_play_opponents(rated, [])
+        self.assertEqual(len(players), len(plain) + 1)
+        self.assertAlmostEqual(weights.sum(), 1.0)
+        self.assertAlmostEqual(weights[-1], 0.4)
+        self.assertEqual(labels[-1], "partner partner")
+        self.assertEqual(players[-1].func.__name__, "pick_move")
+        settings.SPARRING_PARTNER_TURNS = 1
+        self.assertEqual(policy.self_play_opponents(rated, [])[1][-1].func.__name__, "search_move")
+
+    def test_no_partner_means_nothing_changes_and_no_score(self):
+        self.assertIsNone(policy.sparring_partner())
+        self.assertIsNone(generation.score_vs_partner(Network(hidden=8)))
+
+    def test_a_missing_partner_is_a_clear_error(self):
+        self.addCleanup(setattr, settings, "SPARRING_PARTNER", settings.SPARRING_PARTNER)
+        settings.SPARRING_PARTNER = "baselines/does_not_exist.npz"
+
+        with self.assertRaises(FileNotFoundError):
+            policy.sparring_partner()
+
+    def test_the_score_against_the_partner_is_a_win_rate(self):
+        for name in ("SPARRING_PARTNER", "SPARRING_TEST_GAMES"):
+            self.addCleanup(setattr, settings, name, getattr(settings, name))
+
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        path = Path(folder.name) / "partner.npz"
+        model_store.save_net(Network(hidden=8), path)
+        settings.SPARRING_PARTNER, settings.SPARRING_TEST_GAMES = str(path), 4
+        score = generation.score_vs_partner(Network(hidden=8))
+        self.assertTrue(0.0 <= score <= 1.0)
 
     def test_baselines_get_their_share_of_self_play_games(self):
         self.addCleanup(setattr, settings, "BASELINE_SHARE", settings.BASELINE_SHARE)
